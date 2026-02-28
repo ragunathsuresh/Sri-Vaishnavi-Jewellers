@@ -18,10 +18,10 @@ const getLatestSettings = async (monthString) => {
 };
 
 const updateSettings = async (monthString, settings, userId) => {
-    const { sriBillPercentage, goldRate, effectiveDateStart, effectiveDateEnd } = settings;
+    const { sriBillPercentage, goldRate, profitGoldRate, effectiveDateStart, effectiveDateEnd } = settings;
     return await CalculationSetting.findOneAndUpdate(
         { effectiveDateStart, effectiveDateEnd },
-        { sriBillPercentage, goldRate, createdBy: userId },
+        { sriBillPercentage, goldRate, profitGoldRate, createdBy: userId },
         { upsert: true, new: true }
     );
 };
@@ -34,6 +34,7 @@ const calculateBusinessStats = async (monthString, userId) => {
         const settings = await getLatestSettings(monthString);
         const sriBillPercentage = settings?.sriBillPercentage || 87;
         const goldRate = settings?.goldRate || 0;
+        const profitGoldRate = settings?.profitGoldRate || goldRate || 0;
 
         // 2. Get Billing Summary Data (leveraging existing service)
         const billingSummary = await billingService.getMonthlySummary(monthString);
@@ -77,7 +78,7 @@ const calculateBusinessStats = async (monthString, userId) => {
         // G. PROFIT CALCULATION
         const totalProfitFromSummary = round3(billingSummary.plusSummaryTotals.totalProfit || 0);
         const totalExpenseAmount = billingSummary.expensesTotal || 0;
-        const expenseInGrams = goldRate > 0 ? round3(totalExpenseAmount / goldRate) : 0;
+        const expenseInGrams = profitGoldRate > 0 ? round3(totalExpenseAmount / profitGoldRate) : 0;
         const netProfitBalance = round3(totalProfitFromSummary - expenseInGrams);
 
         // Update or Create Calculation Result
@@ -106,7 +107,7 @@ const calculateBusinessStats = async (monthString, userId) => {
         await session.commitTransaction();
         return {
             summary: calculation,
-            settings: { sriBillPercentage, goldRate }
+            settings: { sriBillPercentage, goldRate, profitGoldRate }
         };
     } catch (error) {
         await session.abortTransaction();
@@ -121,7 +122,11 @@ const getSummary = async (monthString) => {
     const settings = await getLatestSettings(monthString);
     return {
         summary: calculation,
-        settings: settings ? { sriBillPercentage: settings.sriBillPercentage, goldRate: settings.goldRate } : null
+        settings: settings ? {
+            sriBillPercentage: settings.sriBillPercentage,
+            goldRate: settings.goldRate,
+            profitGoldRate: settings.profitGoldRate || settings.goldRate || 0
+        } : null
     };
 };
 

@@ -135,8 +135,17 @@ const Dashboard = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-[#fafafa]">
-            <div className="bg-white border-b border-gray-200 px-8 py-5">
+        <div
+            className="min-h-screen"
+            style={{
+                backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url('/home-bg.jpg')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundAttachment: 'fixed',
+                backgroundColor: '#ffffff'
+            }}
+        >
+            <div className="bg-white/70 backdrop-blur-md border-b border-gray-200 px-8 py-5 sticky top-0 z-50">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-5">
                         <img
@@ -216,7 +225,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="rounded-2xl border border-white/50 bg-white/70 backdrop-blur-sm p-5 shadow-sm transition-all hover:shadow-md">
                         <div className="mb-4 flex items-center justify-between">
                             <p className="text-lg text-gray-600">Total Items</p>
                             <div className="rounded-xl bg-yellow-50 p-2 text-yellow-600"><Gem size={18} /></div>
@@ -224,7 +233,7 @@ const Dashboard = () => {
                         <p className="text-4xl font-extrabold text-gray-900">{loading ? '--' : stockTotals.totalItems.toLocaleString()}</p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="rounded-2xl border border-white/50 bg-white/70 backdrop-blur-sm p-5 shadow-sm transition-all hover:shadow-md">
                         <div className="mb-4 flex items-center justify-between">
                             <p className="text-lg text-gray-600">Total Grams</p>
                             <div className="rounded-xl bg-yellow-50 p-2 text-yellow-600"><Scale size={18} /></div>
@@ -232,7 +241,7 @@ const Dashboard = () => {
                         <p className="text-4xl font-extrabold text-gray-900">{loading ? '--' : stockTotals.totalWeight.toLocaleString()}<span className="ml-1 text-2xl font-semibold text-gray-500">g</span></p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="rounded-2xl border border-white/50 bg-white/70 backdrop-blur-sm p-5 shadow-sm transition-all hover:shadow-md">
                         <div className="mb-4 flex items-center justify-between">
                             <p className="text-lg text-gray-600">Total Count</p>
                             <div className="rounded-xl bg-yellow-50 p-2 text-yellow-600"><Sparkles size={18} /></div>
@@ -240,7 +249,7 @@ const Dashboard = () => {
                         <p className="text-4xl font-extrabold text-gray-900">{loading ? '--' : stockTotals.totalCount.toLocaleString()}</p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="rounded-2xl border border-white/50 bg-white/70 backdrop-blur-sm p-5 shadow-sm transition-all hover:shadow-md">
                         <div className="mb-4 flex items-center justify-between">
                             <p className="text-lg text-gray-600">Current Amount in the Business</p>
                             <div className="flex items-center gap-2">

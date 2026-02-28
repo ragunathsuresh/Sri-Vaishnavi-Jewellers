@@ -55,7 +55,7 @@ chitFundSchema.pre('validate', async function assignCalculatedFields() {
         this.rateApplied = this.goldRateToday;
     }
 
-    if (!this.isPastEntry && this.amount > 0 && this.rateApplied > 0) {
+    if (!this.isPastEntry && this.amount > 0 && this.rateApplied > 0 && !this.gramsPurchased) {
         this.gramsPurchased = Number((this.amount / this.rateApplied).toFixed(6));
     }
 

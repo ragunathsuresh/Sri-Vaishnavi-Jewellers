@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, Plus, Search, Download, Loader2, UserPlus, X, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Search, Download, Loader2, UserPlus, X, Trash2, Pencil } from 'lucide-react';
 import api from '../axiosConfig';
 
 const formatDate = (value) => {
@@ -119,7 +119,6 @@ const ChitFunds = () => {
     };
 
     const handleDeleteUserHistory = async (phone, name) => {
-        if (!window.confirm(`Are you sure you want to delete the ENTIRE chit fund history for ${name} (${phone})? This action cannot be undone.`)) return;
         try {
             await api.delete(`/chit-funds/customers/${phone}`);
             setToast({ type: 'success', message: `Deleted history for ${name}` });
@@ -128,6 +127,21 @@ const ChitFunds = () => {
         } catch (error) {
             console.error('Delete history failed', error);
             setToast({ type: 'error', message: 'Failed to delete history' });
+        }
+    };
+
+    const handleDelete = async (id) => {
+        try {
+            const { data } = await api.delete(`/chit-funds/${id}`);
+            if (data.success) {
+                setToast({ type: 'success', message: 'Entry deleted successfully' });
+                fetchRows();
+            } else {
+                setToast({ type: 'error', message: data.message || 'Failed to delete' });
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            setToast({ type: 'error', message: error.response?.data?.message || 'Failed to delete' });
         }
     };
 
@@ -349,7 +363,7 @@ const ChitFunds = () => {
                 <table className="w-full min-w-[1120px]">
                     <thead>
                         <tr className="bg-gray-50 border-b border-gray-100">
-                            {['S.No', 'Customer Name', 'Date', 'Time', 'Phone Number', 'Amount', 'Gold Rate (Today)', 'Rate Applied', 'Grams Purchased'].map((label) => (
+                            {['S.No', 'Customer Name', 'Date', 'Time', 'Phone Number', 'Amount', 'Gold Rate (Today)', 'Rate Applied', 'Grams Purchased', 'Action'].map((label) => (
                                 <th key={label} className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-black text-gray-500">{label}</th>
                             ))}
                         </tr>
@@ -375,6 +389,24 @@ const ChitFunds = () => {
                                     <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(row.goldRateToday)}</td>
                                     <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(row.rateApplied)}</td>
                                     <td className="px-4 py-3 text-sm font-extrabold text-yellow-700">{Number(row.gramsPurchased || 0).toFixed(3)} gms</td>
+                                    <td className="px-4 py-3 text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => navigate(`/admin/chit/${row.isPastEntry ? 'past/edit' : 'edit'}/${row._id}`)}
+                                                className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Pencil size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(row._id)}
+                                                className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
                             ))
                         )}

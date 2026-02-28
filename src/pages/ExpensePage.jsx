@@ -120,8 +120,6 @@ const ExpensePage = () => {
     };
 
     const handleDelete = async (row) => {
-        const shouldDelete = window.confirm(`Delete expense "${row.expenseName}"?`);
-        if (!shouldDelete) return;
         try {
             await api.delete(`/expenses/${row._id}`);
             await fetchExpenses();

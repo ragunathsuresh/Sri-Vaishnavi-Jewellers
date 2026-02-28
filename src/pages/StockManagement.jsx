@@ -20,6 +20,11 @@ const StockManagement = () => {
     const [stats, setStats] = useState({ totalJewels: '0 Types', totalCount: 0, totalWeight: '0.00' });
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [startSerial, setStartSerial] = useState('');
+    const [endSerial, setEndSerial] = useState('');
+    const [activePage, setActivePage] = useState(1);
+    const [zeroPage, setZeroPage] = useState(1);
+    const itemsPerPage = 10;
 
     useEffect(() => {
         fetchStocks();
@@ -113,11 +118,36 @@ const StockManagement = () => {
         const matchesType = filterType === 'All' || item.jewelleryType === filterType;
         const matchesOrigin = originFilter === 'All' || (item.saleType || 'General') === originFilter;
 
-        return matchesSearch && matchesType && matchesOrigin;
+        let matchesRange = true;
+        if (startSerial || endSerial) {
+            // Extract numeric part from serialNo (e.g., "SV101" -> 101)
+            const itemNum = parseInt(item.serialNo?.replace(/\D/g, ''));
+            const startNum = parseInt(startSerial?.replace(/\D/g, ''));
+            const endNum = parseInt(endSerial?.replace(/\D/g, ''));
+
+            if (!isNaN(itemNum)) {
+                if (!isNaN(startNum) && itemNum < startNum) matchesRange = false;
+                if (!isNaN(endNum) && itemNum > endNum) matchesRange = false;
+            }
+        }
+
+        return matchesSearch && matchesType && matchesOrigin && matchesRange;
     });
+
+    // Reset pages when search or filters change
+    useEffect(() => {
+        setActivePage(1);
+        setZeroPage(1);
+    }, [searchTerm, filterType, originFilter, startSerial, endSerial]);
 
     const inStock = filteredStocks.filter(item => (Number(item.currentCount ?? item.count) || 0) > 0);
     const zeroStock = filteredStocks.filter(item => (Number(item.currentCount ?? item.count) || 0) === 0);
+
+    const paginatedActive = inStock.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage);
+    const paginatedZero = zeroStock.slice((zeroPage - 1) * itemsPerPage, zeroPage * itemsPerPage);
+
+    const activeTotalPages = Math.ceil(inStock.length / itemsPerPage);
+    const zeroTotalPages = Math.ceil(zeroStock.length / itemsPerPage);
 
     // Calculate dynamic stats — active items only (excludes sold/zero stock)
     const dynamicStats = {
@@ -125,11 +155,32 @@ const StockManagement = () => {
         totalCount: inStock.reduce((acc, curr) => acc + (Number(curr.currentCount ?? curr.count) || 0), 0),
         totalWeight: inStock.reduce((acc, curr) => acc + ((Number(curr.netWeight) || 0) * (Number(curr.currentCount ?? curr.count) || 1)), 0).toFixed(3)
     };
-    const StockTable = ({ data, title, emptyMessage }) => (
+    const StockTable = ({ data, displayedData, title, emptyMessage, currentPage, totalPages, setCurrentPage }) => (
         <div className="mb-12">
             <div className="flex items-center gap-3 mb-6">
                 <div className={`w-1.5 h-6 rounded-full ${title.includes('Active') ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                <h2 className="text-xl font-black text-gray-900 tracking-tight">{title} <span className="text-sm font-bold text-gray-400 ml-2">({data.length})</span></h2>
+                <div className="flex-1 flex items-center justify-between">
+                    <h2 className="text-xl font-black text-gray-900 tracking-tight">{title} <span className="text-sm font-bold text-gray-400 ml-2">({data.length})</span></h2>
+                    {totalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-400 mr-2">Page {currentPage} of {totalPages}</span>
+                            <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                className="p-1.5 bg-white border border-gray-100 rounded-lg text-gray-400 hover:text-gray-900 disabled:opacity-30 transition-all font-black"
+                            >
+                                {'<'}
+                            </button>
+                            <button
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                className="p-1.5 bg-white border border-gray-100 rounded-lg text-gray-400 hover:text-gray-900 disabled:opacity-30 transition-all font-black"
+                            >
+                                {'>'}
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse min-w-[1400px]">
@@ -154,15 +205,15 @@ const StockManagement = () => {
                             <tr>
                                 <td colSpan="12" className="px-6 py-20 text-center text-gray-400 font-bold italic">Loading stock records...</td>
                             </tr>
-                        ) : data.length === 0 ? (
+                        ) : displayedData.length === 0 ? (
                             <tr>
                                 <td colSpan="12" className="px-6 py-20 text-center text-gray-400 font-bold italic">{emptyMessage}</td>
                             </tr>
                         ) : (
-                            data.map((item, index) => (
+                            displayedData.map((item, index) => (
                                 <tr key={item._id} className="hover:bg-gray-50/50 transition-colors group">
                                     <td className="px-6 py-5 text-center">
-                                        <span className="text-sm font-black text-gray-400 group-hover:text-yellow-600 transition-colors tracking-tight">{index + 1}</span>
+                                        <span className="text-sm font-black text-gray-400 group-hover:text-yellow-600 transition-colors tracking-tight">{(currentPage - 1) * 10 + index + 1}</span>
                                     </td>
                                     <td className="px-6 py-5 text-center">
                                         <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${item.saleType === 'B2B' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
@@ -333,6 +384,26 @@ const StockManagement = () => {
                         <option value="B2C">B2C Returns</option>
                     </select>
                 </div>
+                {/* Serial Range Filter */}
+                <div className="flex items-center gap-2 bg-white border border-gray-100 px-4 py-3 rounded-xl shadow-sm">
+                    <Filter className="text-gray-400" size={16} />
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-1">Range:</span>
+                    <input
+                        type="text"
+                        placeholder="From"
+                        value={startSerial}
+                        onChange={(e) => setStartSerial(e.target.value)}
+                        className="w-16 bg-transparent border-b border-gray-200 outline-none focus:border-yellow-400 text-xs font-bold text-gray-700 text-center pb-0.5"
+                    />
+                    <span className="text-gray-300 font-bold">-</span>
+                    <input
+                        type="text"
+                        placeholder="To"
+                        value={endSerial}
+                        onChange={(e) => setEndSerial(e.target.value)}
+                        className="w-16 bg-transparent border-b border-gray-200 outline-none focus:border-yellow-400 text-xs font-bold text-gray-700 text-center pb-0.5"
+                    />
+                </div>
                 <button
                     onClick={() => handleExport()}
                     className="flex items-center gap-2 bg-white border border-gray-100 px-6 py-3.5 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
@@ -345,14 +416,22 @@ const StockManagement = () => {
             {/* Sections */}
             <StockTable
                 data={inStock}
+                displayedData={paginatedActive}
                 title="Active Stock"
                 emptyMessage="No active stock found matching your search."
+                currentPage={activePage}
+                setCurrentPage={setActivePage}
+                totalPages={activeTotalPages}
             />
 
             <StockTable
                 data={zeroStock}
+                displayedData={paginatedZero}
                 title="Sold Out / Zero Stock"
                 emptyMessage="No sold out items found matching your search."
+                currentPage={zeroPage}
+                setCurrentPage={setZeroPage}
+                totalPages={zeroTotalPages}
             />
 
             {/* Footer Stats matched to design */}

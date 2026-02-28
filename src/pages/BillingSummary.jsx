@@ -158,29 +158,48 @@ const BillingSummary = () => {
         setErrorMessage('');
         setInfoMessage('');
         try {
-            window.alert('Enter recipient WhatsApp number with country code.\nExample: 919876543210\n(Leave empty to open generic WhatsApp share)');
-            const phoneInput = window.prompt('Recipient WhatsApp number:');
-            if (phoneInput === null) {
-                setExporting(false);
-                return;
-            }
-            const phone = phoneInput ? phoneInput.replace(/\D/g, '') : '';
-            const { data } = await api.get('/reports/daily/pdf/share-link', {
-                params: { date: selectedDate, phone }
+            // First, get the PDF as a blob (same as download)
+            const response = await api.get('/reports/daily/pdf', {
+                params: { date: selectedDate },
+                responseType: 'blob'
             });
-            const fileUrl = data?.data?.fileUrl;
-            const whatsappUrl = data?.data?.whatsappUrl;
-            if (!fileUrl || !whatsappUrl) throw new Error('Unable to prepare WhatsApp share link');
 
-            const shareText = `Daily Billing Summary (${selectedDate}) PDF:\n${fileUrl}`;
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-            const mobileUrl = phone
-                ? `whatsapp://send?phone=${phone}&text=${encodeURIComponent(shareText)}`
-                : `whatsapp://send?text=${encodeURIComponent(shareText)}`;
-            if (isMobile) {
-                window.location.href = mobileUrl;
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const file = new File([blob], `billing-summary-${selectedDate}.pdf`, { type: 'application/pdf' });
+
+            // Check if Web Share API supports file sharing
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: `Daily Billing Summary - ${selectedDate}`,
+                    text: `Please find the Daily Billing Summary for ${selectedDate} attached.`
+                });
+                setInfoMessage('PDF shared successfully.');
             } else {
-                window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+                // Fallback to the old link-based WhatsApp sharing if direct file sharing isn't supported
+                window.alert('Direct file sharing is not supported on this browser. Opening WhatsApp with a download link instead.');
+                const phoneInput = window.prompt('Recipient WhatsApp number (with country code, e.g., 919876543210):');
+                const phone = phoneInput ? phoneInput.replace(/\D/g, '') : '';
+
+                const { data } = await api.get('/reports/daily/pdf/share-link', {
+                    params: { date: selectedDate, phone }
+                });
+                const fileUrl = data?.data?.fileUrl;
+                const whatsappUrl = data?.data?.whatsappUrl;
+
+                if (fileUrl) {
+                    const shareText = `Daily Billing Summary (${selectedDate}) PDF:\n${fileUrl}`;
+                    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+                    const mobileUrl = phone
+                        ? `whatsapp://send?phone=${phone}&text=${encodeURIComponent(shareText)}`
+                        : `whatsapp://send?text=${encodeURIComponent(shareText)}`;
+
+                    if (isMobile) {
+                        window.location.href = mobileUrl;
+                    } else if (whatsappUrl) {
+                        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+                    }
+                }
             }
         } catch (error) {
             console.error('WhatsApp share failed:', error);
@@ -191,24 +210,39 @@ const BillingSummary = () => {
     };
 
     const handleShare = async () => {
-        const shareText = buildShareText();
-        const sharePayload = {
-            title: 'Billing Summary',
-            text: shareText,
-            url: window.location.href
-        };
-
+        setExporting(true);
         try {
-            if (navigator.share) {
-                await navigator.share(sharePayload);
-                return;
-            }
+            const response = await api.get('/reports/daily/pdf', {
+                params: { date: selectedDate },
+                responseType: 'blob'
+            });
 
-            await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
-            setInfoMessage('Summary copied to clipboard.');
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const file = new File([blob], `billing-summary-${selectedDate}.pdf`, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Daily Billing Summary',
+                    text: `Daily Summary for ${selectedDate}`
+                });
+            } else {
+                // Fallback to text share
+                const shareText = buildShareText();
+                await navigator.share({
+                    title: 'Daily Billing Summary',
+                    text: shareText,
+                    url: window.location.href
+                });
+            }
         } catch (error) {
             console.error('Share failed:', error);
-            setErrorMessage('Unable to share right now');
+            // Final fallback to clipboard
+            const shareText = buildShareText();
+            await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+            setInfoMessage('Summary copied to clipboard (file sharing not supported).');
+        } finally {
+            setExporting(false);
         }
     };
 
@@ -299,11 +333,10 @@ const BillingSummary = () => {
                     <div className="text-xs text-gray-500 uppercase font-black tracking-widest mb-2">Current Amount in the Business</div>
                     <div className="flex items-center gap-2">
                         <input
-                            type="number"
-                            min="0"
-                            step="0.001"
+                            type="text"
+                            inputMode="decimal"
                             value={cashInput}
-                            onChange={(e) => setCashInput(e.target.value)}
+                            onChange={(e) => setCashInput(e.target.value.replace(/[^0-9.]/g, ''))}
                             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]"
                         />
                         <button
@@ -608,11 +641,7 @@ const BillingSummary = () => {
                                 ))}
                             </tbody>
                         </table>
-                    </section>
-
-
-
-                    <section className="bg-white border border-gray-200 rounded-2xl p-5">
+                    </section>                    <section className="bg-white border border-gray-200 rounded-2xl p-5">
                         <div className="flex flex-wrap items-center justify-end gap-3">
                             <button
                                 onClick={handleDownloadPdf}
@@ -628,18 +657,18 @@ const BillingSummary = () => {
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm disabled:opacity-60"
                             >
                                 <Share2 size={16} />
-                                {exporting ? 'Preparing...' : 'WhatsApp'}
+                                WhatsApp
                             </button>
                             <button
                                 onClick={handleShare}
+                                disabled={exporting}
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white font-bold text-sm"
                             >
                                 <Share2 size={16} />
                                 Share
                             </button>
                         </div>
-                    </section>
-                </div>
+                    </section>                </div>
             )}
         </div>
     );

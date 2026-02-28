@@ -13,6 +13,11 @@ const calculationSettingSchema = new mongoose.Schema(
             required: true,
             min: 0
         },
+        profitGoldRate: {
+            type: Number,
+            required: false,
+            default: 0
+        },
         effectiveDateStart: {
             type: Date,
             required: true

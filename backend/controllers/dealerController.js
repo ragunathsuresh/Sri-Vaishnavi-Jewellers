@@ -275,9 +275,25 @@ const getItemDetails = async (req, res) => {
 // @access  Private
 const getDealerTransactions = async (req, res) => {
     try {
-        const transactions = await DealerTransaction.find()
+        const { page = 1, limit = 10, type = 'Dealer' } = req.query;
+
+        // Find dealers of given type
+        // Use a broader query for 'Dealer' to include ones without a type field
+        const dealerQuery = (type === 'Line Stocker')
+            ? { dealerType: 'Line Stocker' }
+            : { dealerType: { $ne: 'Line Stocker' } };
+
+        const dealers = await Dealer.find(dealerQuery).select('_id');
+        const dealerIds = dealers.map(d => d._id);
+
+        const query = { dealerId: { $in: dealerIds } };
+
+        const total = await DealerTransaction.countDocuments(query);
+        const transactions = await DealerTransaction.find(query)
             .populate('dealerId', 'name phoneNumber')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
 
         const data = transactions.map((txn) => ({
             _id: txn._id,
@@ -287,10 +303,17 @@ const getDealerTransactions = async (req, res) => {
             date: txn.date,
             time: txn.time,
             amount: Number(txn.totalValue || 0),
-            balanceAfter: Number(txn.balanceAfter || 0)
+            balanceAfter: Number(txn.balanceAfter || 0),
+            items: txn.items || []
         }));
 
-        res.status(200).json({ success: true, data });
+        res.status(200).json({
+            success: true,
+            data,
+            totalPages: Math.ceil(total / limit),
+            currentPage: Number(page),
+            total
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -318,6 +341,83 @@ const deleteDealer = async (req, res) => {
     }
 };
 
+const deleteDealerTransaction = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const txn = await DealerTransaction.findById(req.params.id).session(session);
+        if (!txn) {
+            return res.status(404).json({ success: false, message: 'Transaction not found' });
+        }
+
+        const dealer = await Dealer.findById(txn.dealerId).session(session);
+        if (dealer) {
+            // Reverse balance
+            // If it was 'Opening Balance' or any transaction that set balanceAfter
+            // We need to find the previous transaction's balanceAfter.
+            // But a simpler way for general transactions is to subtract the totalValue.
+            // Transaction Types: 'Opening Balance', 'Stock In', 'Line Stock Issuance', 'Line Stock Settlement'
+
+            if (txn.transactionType === 'Stock In') {
+                // netTransactionValue = userPurchase - dealerPurchase
+                // grossBalance = current - userPurchase + dealerPurchase
+                // To reverse: dealer.runningBalance = dealer.runningBalance + userPurchase - dealerPurchase
+                const reversal = Number(txn.totalValue || 0);
+                dealer.runningBalance = toThreeDecimals(dealer.runningBalance - reversal);
+            } else if (txn.transactionType === 'Line Stock Issuance') {
+                // dealer.runningBalance += issuedGrams
+                dealer.runningBalance = toThreeDecimals(dealer.runningBalance - Number(txn.totalValue || 0));
+            } else if (txn.transactionType === 'Line Stock Settlement') {
+                // dealer.runningBalance -= returnedGrams
+                dealer.runningBalance = toThreeDecimals(dealer.runningBalance + Number(txn.totalValue || 0));
+            } else if (txn.transactionType === 'Opening Balance') {
+                // This is tricky because it OVERWROTE the balance.
+                // If we delete the opening balance, maybe we should revert to the previous transaction's balanceAfter?
+                const prevTxn = await DealerTransaction.findOne({
+                    dealerId: txn.dealerId,
+                    _id: { $lt: txn._id }
+                }).sort({ createdAt: -1 }).session(session);
+
+                if (prevTxn) {
+                    dealer.runningBalance = prevTxn.balanceAfter;
+                } else {
+                    dealer.runningBalance = 0;
+                }
+            }
+
+            dealer.balanceType = dealer.runningBalance >= 0 ? 'Dealer Owes Us' : 'We Owe Dealer';
+            await dealer.save({ session });
+        }
+
+        // If it was 'Stock In', we might want to reverse stock too?
+        // The user just said "If i press delete it will delete", usually for history.
+        // But stock reversal is safer.
+        if (txn.transactionType === 'Stock In' && txn.items && txn.items.length > 0) {
+            for (const item of txn.items) {
+                const stock = await Stock.findOne({
+                    serialNo: { $regex: new RegExp(`^${item.serialNo}$`, 'i') }
+                }).session(session);
+                if (stock) {
+                    stock.currentCount = Math.max(0, stock.currentCount - (item.quantity || 0));
+                    stock.purchaseCount = Math.max(0, stock.purchaseCount - (item.quantity || 0));
+                    await stock.save({ session });
+                }
+            }
+        }
+
+        await DealerTransaction.findByIdAndDelete(req.params.id).session(session);
+
+        await session.commitTransaction();
+        res.status(200).json({ success: true, message: 'Transaction deleted and balance reversed.' });
+    } catch (error) {
+        await session.abortTransaction();
+        console.error('Delete dealer transaction error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
 module.exports = {
     getDealers,
     getDealerById,
@@ -325,5 +425,6 @@ module.exports = {
     addDealerStock,
     getItemDetails,
     getDealerTransactions,
-    deleteDealer
+    deleteDealer,
+    deleteDealerTransaction
 };

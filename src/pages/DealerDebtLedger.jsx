@@ -1,14 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Download, Search, UserPlus, X, Pencil, Check, Trash2, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, Download, Search, UserPlus, X, Pencil, Check, Trash2, AlertTriangle, ArrowUpRight } from 'lucide-react';
 import api from '../axiosConfig';
 
 const DealerDebtLedger = ({ mode = 'receivable' }) => {
+    const navigate = useNavigate();
     const [dealers, setDealers] = useState([]);
     const [lineStockRows, setLineStockRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lineStockLoading, setLineStockLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [search, setSearch] = useState('');
+    const [recentTxns, setRecentTxns] = useState([]);
+    const [txnLoading, setTxnLoading] = useState(false);
+    const [txnPage, setTxnPage] = useState(1);
+    const [txnTotalPages, setTxnTotalPages] = useState(1);
 
     // Add User modal state
     const [showAddUser, setShowAddUser] = useState(false);
@@ -17,9 +23,6 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
     const [addError, setAddError] = useState('');
 
     // Deletion state
-    const [deletingId, setDeletingId] = useState(null);
-    const [deletingRow, setDeletingRow] = useState(null); // Used for Line Stock deletion
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Inline balance edit state (Dealer table)
@@ -36,8 +39,9 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
 
     useEffect(() => {
         fetchDealers();
+        fetchRecentTransactions();
         if (mode === 'receivable') fetchLineStockReceivables();
-    }, []);
+    }, [txnPage, mode]);
 
     const fetchDealers = async () => {
         setLoading(true);
@@ -103,6 +107,31 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
         } finally {
             setLineStockLoading(false);
         }
+    };
+
+    const fetchRecentTransactions = async () => {
+        setTxnLoading(true);
+        try {
+            // Note: Reuse the dealer transactions endpoint with appropriate type filter
+            const typeParam = mode === 'payable' ? 'Dealer' : 'Line Stocker';
+            const { data } = await api.get(`/dealers/transactions?type=${typeParam}&page=${txnPage}&limit=10`);
+            setRecentTxns(data?.data || []);
+            setTxnTotalPages(data?.totalPages || 1);
+        } catch (error) {
+            console.error('Error fetching recent transactions:', error);
+            setRecentTxns([]);
+        } finally {
+            setTxnLoading(false);
+        }
+    };
+
+    const formatDateSafe = (dateStr) => {
+        try {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch { return dateStr || '-'; }
     };
 
     const startLsEdit = (row) => {
@@ -295,33 +324,30 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
         }
     };
 
-    const handleDeleteUser = async () => {
-        if (!deletingId && !deletingRow) return;
+    const deleteRecord = async (id, row = null, isTransaction = false) => {
         setIsDeleting(true);
         try {
-            if (deletingId) {
-                await api.delete(`/dealers/${deletingId}`);
-            }
-
-            if (deletingRow) {
+            if (isTransaction && id) {
+                await api.delete(`/dealers/transactions/${id}`);
+            } else if (id) {
+                await api.delete(`/dealers/${id}`);
+            } else if (row) {
                 // Delete line stocks associated with this person
                 await api.delete('/line-stock', {
                     params: {
-                        personName: deletingRow.personName,
-                        phoneNumber: deletingRow.phoneNumber || ''
+                        personName: row.personName,
+                        phoneNumber: row.phoneNumber || ''
                     }
                 });
 
                 // ALSO delete the dealer record if we have a dealerId for this line stock row
-                if (deletingRow.dealerId && !deletingId) {
-                    await api.delete(`/dealers/${deletingRow.dealerId}`);
+                if (row.dealerId && !id) {
+                    await api.delete(`/dealers/${row.dealerId}`);
                 }
             }
 
-            setShowDeleteConfirm(false);
-            setDeletingId(null);
-            setDeletingRow(null);
             await fetchDealers();
+            fetchRecentTransactions();
             if (mode === 'receivable') {
                 await fetchLineStockReceivables();
             }
@@ -462,18 +488,28 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                                 )}
                                             </td>
                                             <td className="px-4 py-2 text-right">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setDeletingId(d._id);
-                                                        setDeletingRow(null);
-                                                        setShowDeleteConfirm(true);
-                                                    }}
-                                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                    title="Delete User"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigate('/admin/dealers', { state: { dealerName: d.name } });
+                                                        }}
+                                                        className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
+                                                        title="Manage Dealer"
+                                                    >
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            deleteRecord(d._id);
+                                                        }}
+                                                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                        title="Delete User"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -497,239 +533,352 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
             </div>
 
             {/* Line Stock Receivable (receivable mode only) */}
-            {mode === 'receivable' && (
-                <div className="mt-10 bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-800 bg-gray-900">
-                        <h3 className="text-sm font-black text-yellow-400 uppercase tracking-[0.2em] text-center">
-                            Line Stock Receivable
-                        </h3>
-                    </div>
-                    <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-gray-100 bg-gray-50/70">
-                                    <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">S.No</th>
-                                    <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Name</th>
-                                    <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
-                                    <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Status</th>
-                                    <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance (g)</th>
-                                    <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {lineStockLoading ? (
-                                    <tr>
-                                        <td colSpan="6" className="py-14">
-                                            <div className="flex items-center justify-center gap-3 text-gray-400">
-                                                <Loader2 className="animate-spin text-yellow-400" size={22} />
-                                                <p className="font-bold text-sm">Fetching line stock receivables...</p>
-                                            </div>
-                                        </td>
+            {
+                mode === 'receivable' && (
+                    <div className="mt-10 bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-800 bg-gray-900">
+                            <h3 className="text-sm font-black text-yellow-400 uppercase tracking-[0.2em] text-center">
+                                Line Stock Receivable
+                            </h3>
+                        </div>
+                        <div className="overflow-x-auto custom-scrollbar">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-gray-100 bg-gray-50/70">
+                                        <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">S.No</th>
+                                        <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Name</th>
+                                        <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
+                                        <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Status</th>
+                                        <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance (g)</th>
+                                        <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
                                     </tr>
-                                ) : groupedLineStock.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="6" className="py-14 text-center text-gray-400 font-bold">
-                                            {search ? `No results for "${search}"` : 'No line stock receivables found.'}
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    groupedLineStock.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50/50 transition-all">
-                                            <td className="px-4 py-4 font-black text-yellow-600 text-[11px]">{idx + 1}</td>
-                                            <td className="px-4 py-4 font-black text-gray-900 text-[11px]">{row.personName || '-'}</td>
-                                            <td className="px-4 py-4 font-bold text-gray-500 text-[11px]">{row.phoneNumber || '-'}</td>
-                                            <td className="px-4 py-4">
-                                                <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${row.status === 'OVERDUE'
-                                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                                    : 'bg-blue-50 text-blue-700 border-blue-200'
-                                                    }`}>
-                                                    {row.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-4 font-black text-[12px] text-right text-emerald-600">
-                                                {lsEditingName === row.personName ? (
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        <input
-                                                            ref={lsEditInputRef}
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.001"
-                                                            value={lsEditValue}
-                                                            onChange={(e) => setLsEditValue(e.target.value)}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') saveLsBalance(row);
-                                                                if (e.key === 'Escape') cancelLsEdit();
-                                                            }}
-                                                            onBlur={() => saveLsBalance(row)}
-                                                            className="w-28 px-2 py-1.5 rounded-lg border-2 border-[#b8860b] text-right text-[12px] font-black focus:outline-none focus:ring-1 focus:ring-[#b8860b55]"
-                                                        />
-                                                        {lsSavingName === row.personName
-                                                            ? <Loader2 size={14} className="animate-spin text-yellow-600" />
-                                                            : <Check size={14} className="text-emerald-500 cursor-pointer" onMouseDown={(e) => { e.preventDefault(); saveLsBalance(row); }} />
-                                                        }
-                                                    </div>
-                                                ) : (
-                                                    <div
-                                                        className="flex items-center justify-end gap-2 group cursor-pointer"
-                                                        onClick={() => startLsEdit(row)}
-                                                        title="Click to edit balance"
-                                                    >
-                                                        <span className={`font-black text-[12px] ${Number(row.outstandingBalance ?? 0) <= 0
-                                                            ? 'text-green-600'
-                                                            : row.status === 'OVERDUE'
-                                                                ? 'text-red-600'
-                                                                : 'text-emerald-600'
-                                                            }`}>
-                                                            {Number(row.outstandingBalance ?? 0).toFixed(3)} g
-                                                        </span>
-                                                        <Pencil size={11} className="text-gray-300 group-hover:text-[#b8860b] transition-colors" />
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-2 text-right">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setDeletingRow(row);
-                                                        setDeletingId(null);
-                                                        setShowDeleteConfirm(true);
-                                                    }}
-                                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                    title="Delete all line stock records for this person"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {lineStockLoading ? (
+                                        <tr>
+                                            <td colSpan="6" className="py-14">
+                                                <div className="flex items-center justify-center gap-3 text-gray-400">
+                                                    <Loader2 className="animate-spin text-yellow-400" size={22} />
+                                                    <p className="font-bold text-sm">Fetching line stock receivables...</p>
+                                                </div>
                                             </td>
                                         </tr>
-                                    ))
+                                    ) : groupedLineStock.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="6" className="py-14 text-center text-gray-400 font-bold">
+                                                {search ? `No results for "${search}"` : 'No line stock receivables found.'}
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        groupedLineStock.map((row, idx) => (
+                                            <tr key={idx} className="hover:bg-gray-50/50 transition-all">
+                                                <td className="px-4 py-4 font-black text-yellow-600 text-[11px]">{idx + 1}</td>
+                                                <td className="px-4 py-4 font-black text-gray-900 text-[11px]">{row.personName || '-'}</td>
+                                                <td className="px-4 py-4 font-bold text-gray-500 text-[11px]">{row.phoneNumber || '-'}</td>
+                                                <td className="px-4 py-4">
+                                                    <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${row.status === 'OVERDUE'
+                                                        ? 'bg-red-50 text-red-700 border-red-200'
+                                                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                                                        }`}>
+                                                        {row.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-4 font-black text-[12px] text-right text-emerald-600">
+                                                    {lsEditingName === row.personName ? (
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <input
+                                                                ref={lsEditInputRef}
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.001"
+                                                                value={lsEditValue}
+                                                                onChange={(e) => setLsEditValue(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') saveLsBalance(row);
+                                                                    if (e.key === 'Escape') cancelLsEdit();
+                                                                }}
+                                                                onBlur={() => saveLsBalance(row)}
+                                                                className="w-28 px-2 py-1.5 rounded-lg border-2 border-[#b8860b] text-right text-[12px] font-black focus:outline-none focus:ring-1 focus:ring-[#b8860b55]"
+                                                            />
+                                                            {lsSavingName === row.personName
+                                                                ? <Loader2 size={14} className="animate-spin text-yellow-600" />
+                                                                : <Check size={14} className="text-emerald-500 cursor-pointer" onMouseDown={(e) => { e.preventDefault(); saveLsBalance(row); }} />
+                                                            }
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            className="flex items-center justify-end gap-2 group cursor-pointer"
+                                                            onClick={() => startLsEdit(row)}
+                                                            title="Click to edit balance"
+                                                        >
+                                                            <span className={`font-black text-[12px] ${Number(row.outstandingBalance ?? 0) <= 0
+                                                                ? 'text-green-600'
+                                                                : row.status === 'OVERDUE'
+                                                                    ? 'text-red-600'
+                                                                    : 'text-emerald-600'
+                                                                }`}>
+                                                                {Number(row.outstandingBalance ?? 0).toFixed(3)} g
+                                                            </span>
+                                                            <Pencil size={11} className="text-gray-300 group-hover:text-[#b8860b] transition-colors" />
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-2 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate('/admin/dealers', { state: { dealerName: row.personName } });
+                                                            }}
+                                                            className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
+                                                            title="Manage Dealer"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                deleteRecord(null, row);
+                                                            }}
+                                                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                                {!lineStockLoading && groupedLineStock.length > 0 && (
+                                    <tfoot>
+                                        <tr className="bg-gray-900 border-t border-gray-700">
+                                            <td colSpan="4" className="px-4 py-3 text-[10px] font-black text-yellow-400 uppercase tracking-widest text-center">Total</td>
+                                            <td className="px-4 py-3 font-black text-yellow-400 text-[13px] text-right">
+                                                {groupedLineStock
+                                                    .reduce((sum, r) => sum + Number(r.outstandingBalance ?? 0), 0)
+                                                    .toFixed(3)} g
+                                            </td>
+                                        </tr>
+                                    </tfoot>
                                 )}
-                            </tbody>
-                            {!lineStockLoading && groupedLineStock.length > 0 && (
-                                <tfoot>
-                                    <tr className="bg-gray-900 border-t border-gray-700">
-                                        <td colSpan="4" className="px-4 py-3 text-[10px] font-black text-yellow-400 uppercase tracking-widest text-center">Total</td>
-                                        <td className="px-4 py-3 font-black text-yellow-400 text-[13px] text-right">
-                                            {groupedLineStock
-                                                .reduce((sum, r) => sum + Number(r.outstandingBalance ?? 0), 0)
-                                                .toFixed(3)} g
-                                        </td>
-                                    </tr>
-                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Recent Transactions History */}
+            <div className="mt-10 bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-800 bg-gray-900">
+                    <h3 className="text-sm font-black text-yellow-400 uppercase tracking-[0.2em] text-center">
+                        Recent Transaction History
+                    </h3>
+                </div>
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-gray-100 bg-gray-50/70">
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">S.No</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Type</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Name</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Date / Time</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Details</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance After</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {txnLoading ? (
+                                <tr>
+                                    <td colSpan="7" className="py-14">
+                                        <div className="flex items-center justify-center gap-3 text-gray-400">
+                                            <Loader2 className="animate-spin text-yellow-400" size={22} />
+                                            <p className="font-bold text-sm">Fetching history...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : recentTxns.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="py-14 text-center text-gray-400 font-bold">
+                                        No recent transactions found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                recentTxns.map((txn, idx) => {
+                                    const bal = Number(txn.balanceAfter ?? 0);
+                                    const isGold = mode === 'receivable';
+                                    return (
+                                        <tr key={txn._id || idx} className="hover:bg-gray-50/50 transition-all">
+                                            <td className="px-4 py-4 font-black text-yellow-600 text-[11px]">
+                                                {(txnPage - 1) * 10 + idx + 1}
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border ${txn.transactionType === 'Line Stock Issuance' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                    txn.transactionType === 'Line Stock Settlement' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                        txn.transactionType === 'Dealer Purchase' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                            'bg-gray-50 text-gray-600 border-gray-100'
+                                                    }`}>
+                                                    {txn.transactionType}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <p className="font-black text-gray-900 text-[11px] leading-tight">{txn.name}</p>
+                                                <p className="text-[10px] font-bold text-gray-400">{txn.phoneNumber}</p>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <p className="font-bold text-gray-600 text-[11px] whitespace-nowrap">{formatDateSafe(txn.date)}</p>
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{txn.time}</p>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <div className="space-y-1">
+                                                    {(txn.items || []).slice(0, 2).map((item, i) => (
+                                                        <p key={i} className="text-[10px] font-black text-gray-500 leading-none">
+                                                            • {item.itemName} ({item.quantity || 1}x) - {item.netWeight?.toFixed(3)}g
+                                                        </p>
+                                                    ))}
+                                                    {(txn.items || []).length > 2 && (
+                                                        <p className="text-[9px] font-bold text-yellow-600 italic">
+                                                            + {(txn.items.length - 2)} more items
+                                                        </p>
+                                                    )}
+                                                    {(txn.items || []).length === 0 && (
+                                                        <p className="text-[10px] font-bold text-gray-300 italic">No item details</p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className={`px-4 py-4 font-black text-[12px] text-right ${bal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                {isGold ? `${bal.toFixed(3)} g` : `₹${Math.abs(bal).toLocaleString('en-IN')}`}
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
+                                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                        title="Manage"
+                                                    >
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteRecord(txn._id, null, true)}
+                                                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                        title="Delete Transaction"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
-                        </table>
+                        </tbody>
+                    </table>
+                </div>
+                {/* Pagination Controls */}
+                <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-xs font-bold text-gray-400">Page {txnPage} of {txnTotalPages}</span>
+                    <div className="flex gap-2">
+                        <button
+                            disabled={txnPage === 1}
+                            onClick={() => setTxnPage(prev => prev - 1)}
+                            className="p-2 text-gray-400 hover:text-gray-900 disabled:opacity-30 font-black"
+                        >
+                            {'<'}
+                        </button>
+                        <button
+                            disabled={txnPage === txnTotalPages}
+                            onClick={() => setTxnPage(prev => prev + 1)}
+                            className="p-2 text-gray-400 hover:text-gray-900 disabled:opacity-30 font-black"
+                        >
+                            {'>'}
+                        </button>
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Add User Modal */}
-            {showAddUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 relative">
-                        <button
-                            onClick={() => { setShowAddUser(false); setAddError(''); setAddForm({ name: '', phoneNumber: '', balance: '', dealerType: 'Dealer' }); }}
-                            className="absolute top-5 right-5 text-gray-400 hover:text-gray-700 transition-colors"
-                        >
-                            <X size={22} />
-                        </button>
-                        <h2 className="text-xl font-black text-gray-900 mb-1">Add User</h2>
-                        <p className="text-xs text-gray-500 mb-6">
-                            {mode === 'payable'
-                                ? 'Add a person to whom we owe a balance.'
-                                : 'Add a person with an existing balance they owe us.'}
-                        </p>
+            {
+                showAddUser && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 relative">
+                            <button
+                                onClick={() => { setShowAddUser(false); setAddError(''); setAddForm({ name: '', phoneNumber: '', balance: '', dealerType: 'Dealer' }); }}
+                                className="absolute top-5 right-5 text-gray-400 hover:text-gray-700 transition-colors"
+                            >
+                                <X size={22} />
+                            </button>
+                            <h2 className="text-xl font-black text-gray-900 mb-1">Add User</h2>
+                            <p className="text-xs text-gray-500 mb-6">
+                                {mode === 'payable'
+                                    ? 'Add a person to whom we owe a balance.'
+                                    : 'Add a person with an existing balance they owe us.'}
+                            </p>
 
-                        <div className="flex flex-col gap-4">
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">Name</label>
-                                <input
-                                    type="text"
-                                    placeholder="Full name"
-                                    value={addForm.name}
-                                    onChange={(e) => { setAddForm({ ...addForm, name: e.target.value }); setAddError(''); }}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">Phone Number</label>
-                                <input
-                                    type="text"
-                                    placeholder="Phone number"
-                                    value={addForm.phoneNumber}
-                                    onChange={(e) => { setAddForm({ ...addForm, phoneNumber: e.target.value }); setAddError(''); }}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
-                                    {mode === 'payable' ? 'Balance We Owe Them (g)' : 'Balance They Owe Us (g)'}
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="0.001"
-                                    placeholder="0.000"
-                                    value={addForm.balance}
-                                    onChange={(e) => setAddForm({ ...addForm, balance: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">User Type</label>
-                                <select
-                                    value={addForm.dealerType}
-                                    onChange={(e) => setAddForm({ ...addForm, dealerType: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium bg-white"
+                            <div className="flex flex-col gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Full name"
+                                        value={addForm.name}
+                                        onChange={(e) => { setAddForm({ ...addForm, name: e.target.value }); setAddError(''); }}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">Phone Number</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Phone number"
+                                        value={addForm.phoneNumber}
+                                        onChange={(e) => { setAddForm({ ...addForm, phoneNumber: e.target.value }); setAddError(''); }}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                                        {mode === 'payable' ? 'Balance We Owe Them (g)' : 'Balance They Owe Us (g)'}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.001"
+                                        placeholder="0.000"
+                                        value={addForm.balance}
+                                        onChange={(e) => setAddForm({ ...addForm, balance: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">User Type</label>
+                                    <select
+                                        value={addForm.dealerType}
+                                        onChange={(e) => setAddForm({ ...addForm, dealerType: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] text-sm font-medium bg-white"
+                                    >
+                                        <option value="Dealer">Dealer</option>
+                                        <option value="Line Stocker">Line Stocker</option>
+                                    </select>
+                                </div>
+                                {addError && (
+                                    <p className="text-xs text-red-600 font-bold bg-red-50 px-3 py-2 rounded-lg border border-red-100">{addError}</p>
+                                )}
+                                <button
+                                    onClick={handleAddUser}
+                                    disabled={addSaving}
+                                    className="w-full py-3 rounded-xl bg-[#b8860b] hover:bg-[#8b6508] text-white font-black text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 shadow-lg shadow-[#b8860b33]"
                                 >
-                                    <option value="Dealer">Dealer</option>
-                                    <option value="Line Stocker">Line Stocker</option>
-                                </select>
+                                    {addSaving ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
+                                    {addSaving ? 'Saving...' : 'Add User'}
+                                </button>
                             </div>
-                            {addError && (
-                                <p className="text-xs text-red-600 font-bold bg-red-50 px-3 py-2 rounded-lg border border-red-100">{addError}</p>
-                            )}
-                            <button
-                                onClick={handleAddUser}
-                                disabled={addSaving}
-                                className="w-full py-3 rounded-xl bg-[#b8860b] hover:bg-[#8b6508] text-white font-black text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 shadow-lg shadow-[#b8860b33]"
-                            >
-                                {addSaving ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
-                                {addSaving ? 'Saving...' : 'Add User'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-            {/* Delete Confirmation Modal */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 p-8 text-center">
-                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <AlertTriangle className="text-red-500" size={32} />
-                        </div>
-                        <h2 className="text-xl font-black text-gray-900 mb-2">Delete User?</h2>
-                        <p className="text-sm text-gray-500 mb-8">
-                            This action cannot be undone. All balance records for this user will be removed.
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => { setShowDeleteConfirm(false); setDeletingId(null); setDeletingRow(null); }}
-                                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDeleteUser}
-                                disabled={isDeleting}
-                                className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all shadow-lg shadow-red-200 disabled:opacity-60 flex items-center justify-center gap-2"
-                            >
-                                {isDeleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                                {isDeleting ? 'Deleting...' : 'Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

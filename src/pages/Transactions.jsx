@@ -20,7 +20,9 @@ import {
     FileText,
     ArrowUpRight,
     ArrowDownLeft,
-    Plus
+    Plus,
+    Trash2,
+    Pencil
 } from 'lucide-react';
 import api from '../axiosConfig';
 import { format } from 'date-fns';
@@ -33,6 +35,12 @@ const Transactions = () => {
     const [search, setSearch] = useState('');
     const [saleType, setSaleType] = useState('All');
     const [dateRange, setDateRange] = useState('Last 30 Days');
+    const [dealerPage, setDealerPage] = useState(1);
+    const [dealerTotalPages, setDealerTotalPages] = useState(1);
+    const [lineStockTxns, setLineStockTxns] = useState([]);
+    const [lineStockLoading, setLineStockLoading] = useState(true);
+    const [lineStockPage, setLineStockPage] = useState(1);
+    const [lineStockTotalPages, setLineStockTotalPages] = useState(1);
     const [selectedTxn, setSelectedTxn] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [exporting, setExporting] = useState(false);
@@ -41,7 +49,8 @@ const Transactions = () => {
     useEffect(() => {
         fetchTransactions();
         fetchDealerTransactions();
-    }, [saleType, dateRange]);
+        fetchLineStockTransactions();
+    }, [saleType, dateRange, dealerPage, lineStockPage]);
 
     const fetchTransactions = async (query = '') => {
         setLoading(true);
@@ -71,13 +80,28 @@ const Transactions = () => {
     const fetchDealerTransactions = async () => {
         setDealerLoading(true);
         try {
-            const { data } = await api.get('/dealers/transactions');
+            const { data } = await api.get(`/dealers/transactions?type=Dealer&page=${dealerPage}&limit=10`);
             setDealerTransactions(data.data || []);
+            setDealerTotalPages(data.totalPages || 1);
         } catch (error) {
             console.error('Error fetching dealer transactions:', error);
             setDealerTransactions([]);
         } finally {
             setDealerLoading(false);
+        }
+    };
+
+    const fetchLineStockTransactions = async () => {
+        setLineStockLoading(true);
+        try {
+            const { data } = await api.get(`/dealers/transactions?type=Line Stocker&page=${lineStockPage}&limit=10`);
+            setLineStockTxns(data.data || []);
+            setLineStockTotalPages(data.totalPages || 1);
+        } catch (error) {
+            console.error('Error fetching line stock transactions:', error);
+            setLineStockTxns([]);
+        } finally {
+            setLineStockLoading(false);
         }
     };
 
@@ -92,16 +116,54 @@ const Transactions = () => {
         setIsModalOpen(true);
     };
 
+    const deleteSale = async (id) => {
+        try {
+            const { data } = await api.delete(`/sales/${id}`);
+            if (data.success) {
+                fetchTransactions();
+            }
+        } catch (error) {
+            console.error('Error deleting sale:', error);
+        }
+    };
+
+    const deleteDealerTxn = async (id, type) => {
+        try {
+            const { data } = await api.delete(`/dealers/transactions/${id}`);
+            if (data.success) {
+                if (type === 'Dealer') fetchDealerTransactions();
+                else fetchLineStockTransactions();
+            }
+        } catch (error) {
+            console.error('Error deleting dealer transaction:', error);
+        }
+    };
+
     const toCsvCell = (value) => {
         const str = String(value ?? '');
         return `"${str.replace(/"/g, '""')}"`;
     };
     const toExcelText = (value) => `'${String(value ?? '')}`;
 
-    const exportToCSV = () => {
-        if (transactions.length === 0 && dealerTransactions.length === 0) return;
+    const exportToCSV = async () => {
         try {
             setExporting(true);
+
+            // Fetch all records for export (ignoring current pagination)
+            const [salesRes, dealersRes, lineStockRes] = await Promise.all([
+                api.get('/sales?limit=5000'),
+                api.get('/dealers/transactions?type=Dealer&limit=5000'),
+                api.get('/dealers/transactions?type=Line Stocker&limit=5000')
+            ]);
+
+            const allSales = salesRes.data?.data || [];
+            const allDealers = dealersRes.data?.data || [];
+            const allLineStock = lineStockRes.data?.data || [];
+
+            if (allSales.length === 0 && allDealers.length === 0 && allLineStock.length === 0) {
+                setExporting(false);
+                return;
+            }
 
             const salesHeader = [
                 'Serial No', 'Date', 'Time', 'Sale Type', 'Customer Name', 'Phone',
@@ -109,7 +171,7 @@ const Transactions = () => {
                 'Receipt Bill No', 'Receipt Serial', 'Receipt Type', 'Receipt Weight'
             ];
 
-            const salesRows = transactions.flatMap((txn, txnIdx) => {
+            const salesRows = allSales.flatMap((txn, txnIdx) => {
                 const rowCount = Math.max(txn.issuedItems?.length || 0, txn.receiptItems?.length || 0, 1);
                 return Array.from({ length: rowCount }).map((_, idx) => {
                     const issued = txn.issuedItems?.[idx] || {};
@@ -136,7 +198,7 @@ const Transactions = () => {
                 });
             });
 
-            const salesTotals = transactions.reduce((acc, txn) => {
+            const salesTotals = allSales.reduce((acc, txn) => {
                 acc.salesCount += 1;
                 acc.issuedCount += Array.isArray(txn.issuedItems) ? txn.issuedItems.length : 0;
                 acc.receiptCount += Array.isArray(txn.receiptItems) ? txn.receiptItems.length : 0;
@@ -146,7 +208,7 @@ const Transactions = () => {
             }, { salesCount: 0, issuedCount: 0, receiptCount: 0, issuedSriBill: 0, receiptWeight: 0 });
 
             const dealerHeader = ['S.No', 'Name', 'Date', 'Time', 'Phone No', 'Amount'];
-            const dealerRows = dealerTransactions.map((txn, idx) => {
+            const dealerRows = allDealers.map((txn, idx) => {
                 const amount = Number(txn.balanceAfter ?? txn.amount ?? 0);
                 return [
                     idx + 1,
@@ -157,10 +219,24 @@ const Transactions = () => {
                     Math.abs(amount).toFixed(2)
                 ];
             });
-            const dealerTotalAmount = dealerTransactions.reduce((sum, txn) => {
+            const dealerTotalAmount = allDealers.reduce((sum, txn) => {
                 const amount = Number(txn.balanceAfter ?? txn.amount ?? 0);
                 return sum + Math.abs(amount);
             }, 0);
+
+            const lineStockHeader = ['S.No', 'Name', 'Date', 'Time', 'Phone No', 'Balance After (g)'];
+            const lineStockRows = allLineStock.map((txn, idx) => {
+                const amount = Number(txn.balanceAfter ?? 0);
+                return [
+                    idx + 1,
+                    txn.name || '-',
+                    toExcelText(formatDateSafe(txn.date)),
+                    toExcelText(txn.time || '-'),
+                    toExcelText(txn.phoneNumber || '-'),
+                    amount.toFixed(3)
+                ];
+            });
+            const lineStockTotalTotal = allLineStock.reduce((sum, txn) => sum + Number(txn.balanceAfter ?? 0), 0);
 
             const csvLines = [];
             csvLines.push(toCsvCell('Sales Transaction History'));
@@ -175,6 +251,13 @@ const Transactions = () => {
             csvLines.push(dealerHeader.map(toCsvCell).join(','));
             dealerRows.forEach((row) => csvLines.push(row.map(toCsvCell).join(',')));
             csvLines.push(['TOTAL', '', '', '', '', dealerTotalAmount.toFixed(2)].map(toCsvCell).join(','));
+
+            for (let i = 0; i < 5; i++) csvLines.push('');
+
+            csvLines.push(toCsvCell('Line Stock Transaction'));
+            csvLines.push(lineStockHeader.map(toCsvCell).join(','));
+            lineStockRows.forEach((row) => csvLines.push(row.map(toCsvCell).join(',')));
+            csvLines.push(['TOTAL', '', '', '', '', lineStockTotalTotal.toFixed(3)].map(toCsvCell).join(','));
 
             const csv = csvLines.join('\n');
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -320,12 +403,13 @@ const Transactions = () => {
                             <th className="px-3 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-orange-50/30 w-[80px]">Act Touch</th>
                             <th className="px-3 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-orange-50/30 w-[80px]">Tkn Touch</th>
                             <th className="px-3 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-orange-50/30 font-bold w-[80px]">Purity (C)</th>
+                            <th className="px-4 py-4 text-[9px] font-black text-gray-500 uppercase tracking-widest bg-gray-50 w-[100px]">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {loading ? (
                             <tr>
-                                <td colSpan="23" className="py-20">
+                                <td colSpan="24" className="py-20">
                                     <div className="flex flex-col items-center justify-center text-gray-400 gap-4">
                                         <Loader2 className="animate-spin text-yellow-400" size={32} />
                                         <p className="font-bold text-sm tracking-tight">Fetching history...</p>
@@ -334,7 +418,7 @@ const Transactions = () => {
                             </tr>
                         ) : transactions.length === 0 ? (
                             <tr>
-                                <td colSpan="23" className="py-20 text-center text-gray-400 font-bold">
+                                <td colSpan="24" className="py-20 text-center text-gray-400 font-bold">
                                     No transactions found.
                                 </td>
                             </tr>
@@ -384,6 +468,26 @@ const Transactions = () => {
                                     <td className="px-3 py-4 text-[10px] font-bold text-green-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.actualTouch || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-emerald-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.takenTouch || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-gray-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.purity || '-'}</td>
+                                    {idx === 0 && (
+                                        <td className="px-4 py-4 text-center border-l border-gray-100" rowSpan={rowCount}>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => navigate(`/admin/sales/edit/${txn._id}`)}
+                                                    className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteSale(txn._id)}
+                                                    className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ));
                         })}
@@ -418,12 +522,13 @@ const Transactions = () => {
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Time</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Amount</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {dealerLoading ? (
                                 <tr>
-                                    <td colSpan="6" className="py-14">
+                                    <td colSpan="7" className="py-14">
                                         <div className="flex items-center justify-center gap-3 text-gray-400">
                                             <Loader2 className="animate-spin text-yellow-400" size={22} />
                                             <p className="font-bold text-sm">Fetching dealer transactions...</p>
@@ -432,7 +537,7 @@ const Transactions = () => {
                                 </tr>
                             ) : dealerTransactions.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="py-14 text-center text-gray-400 font-bold">
+                                    <td colSpan="7" className="py-14 text-center text-gray-400 font-bold">
                                         No dealer transactions found.
                                     </td>
                                 </tr>
@@ -442,7 +547,7 @@ const Transactions = () => {
                                     const amountClass = amount >= 0 ? 'text-emerald-600' : 'text-red-600';
                                     return (
                                         <tr key={txn._id || idx} className="hover:bg-gray-50/50 transition-all">
-                                            <td className="px-4 py-4 font-black text-yellow-600 text-[11px]">{idx + 1}</td>
+                                            <td className="px-4 py-4 font-black text-yellow-600 text-[11px]">{(dealerPage - 1) * 10 + idx + 1}</td>
                                             <td className="px-4 py-4 font-black text-gray-900 text-[11px]">{txn.name || '-'}</td>
                                             <td className="px-4 py-4 font-bold text-gray-500 text-[11px]">{formatDateSafe(txn.date)}</td>
                                             <td className="px-4 py-4 font-black text-gray-700 text-[11px]">{txn.time || '-'}</td>
@@ -450,12 +555,145 @@ const Transactions = () => {
                                             <td className={`px-4 py-4 font-black text-[12px] text-right ${amountClass}`}>
                                                 ₹{Math.abs(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
+                                            <td className="px-4 py-4 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
+                                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteDealerTxn(txn._id, 'Dealer')}
+                                                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     );
                                 })
                             )}
                         </tbody>
                     </table>
+                </div>
+                {/* Dealer Pagination */}
+                <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-xs font-bold text-gray-400">Page {dealerPage} of {dealerTotalPages}</span>
+                    <div className="flex gap-2">
+                        <button
+                            disabled={dealerPage === 1}
+                            onClick={() => setDealerPage(prev => prev - 1)}
+                            className="p-2 text-gray-400 hover:text-gray-900 disabled:opacity-30"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button
+                            disabled={dealerPage === dealerTotalPages}
+                            onClick={() => setDealerPage(prev => prev + 1)}
+                            className="p-2 text-gray-400 hover:text-gray-900 disabled:opacity-30"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Line Stock Transactions */}
+            <div className="mt-10 bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-800 bg-gray-900">
+                    <h3 className="text-sm font-black text-yellow-400 uppercase tracking-[0.2em] text-center">Line Stock Transaction</h3>
+                </div>
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-gray-100 bg-gray-50/70">
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">S.No</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Name</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Date</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Time</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance After (g)</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {lineStockLoading ? (
+                                <tr>
+                                    <td colSpan="7" className="py-14">
+                                        <div className="flex items-center justify-center gap-3 text-gray-400">
+                                            <Loader2 className="animate-spin text-yellow-400" size={22} />
+                                            <p className="font-bold text-sm">Fetching line stock transactions...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : lineStockTxns.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="py-14 text-center text-gray-400 font-bold">
+                                        No line stock transactions found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                lineStockTxns.map((txn, idx) => {
+                                    const balance = Number(txn.balanceAfter ?? 0);
+                                    const balanceClass = balance >= 0 ? 'text-amber-600' : 'text-emerald-600';
+                                    return (
+                                        <tr key={txn._id || idx} className="hover:bg-gray-50/50 transition-all">
+                                            <td className="px-4 py-4 font-black text-yellow-600 text-[11px]">{(lineStockPage - 1) * 10 + idx + 1}</td>
+                                            <td className="px-4 py-4 font-black text-gray-900 text-[11px]">{txn.name || '-'}</td>
+                                            <td className="px-4 py-4 font-bold text-gray-500 text-[11px]">{formatDateSafe(txn.date)}</td>
+                                            <td className="px-4 py-4 font-black text-gray-700 text-[11px]">{txn.time || '-'}</td>
+                                            <td className="px-4 py-4 font-bold text-gray-500 text-[11px]">{txn.phoneNumber || '-'}</td>
+                                            <td className={`px-4 py-4 font-black text-[12px] text-right ${balanceClass}`}>
+                                                {balance.toFixed(3)} g
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
+                                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteDealerTxn(txn._id, 'Line Stocker')}
+                                                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {/* Line Stock Pagination */}
+                <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-xs font-bold text-gray-400">Page {lineStockPage} of {lineStockTotalPages}</span>
+                    <div className="flex gap-2">
+                        <button
+                            disabled={lineStockPage === 1}
+                            onClick={() => setLineStockPage(prev => prev - 1)}
+                            className="p-2 text-gray-400 hover:text-gray-900 disabled:opacity-30"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button
+                            disabled={lineStockPage === lineStockTotalPages}
+                            onClick={() => setLineStockPage(prev => prev + 1)}
+                            className="p-2 text-gray-400 hover:text-gray-900 disabled:opacity-30"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
                 </div>
             </div>
 

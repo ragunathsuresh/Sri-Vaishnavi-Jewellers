@@ -34,8 +34,8 @@ const MonthlyBillingSummary = () => {
 
     // Business Calculation Engine State
     const [businessSummary, setBusinessSummary] = useState(null);
-    const [businessSettings, setBusinessSettings] = useState({ sriBillPercentage: 0, goldRate: 0 });
-    const [profitGoldRate, setProfitGoldRate] = useState(0);
+    const [businessSettings, setBusinessSettings] = useState({ sriBillPercentage: '', goldRate: '' });
+    const [profitGoldRate, setProfitGoldRate] = useState('');
     const [isBusinessCalculating, setIsBusinessCalculating] = useState(false);
     const [showBusinessSection, setShowBusinessSection] = useState(true);
     const [manualAdjustments, setManualAdjustments] = useState({});
@@ -84,9 +84,8 @@ const MonthlyBillingSummary = () => {
             if (res.data.success) {
                 setBusinessSummary(res.data.data.summary);
                 if (res.data.data.settings) {
-                    setBusinessSettings(res.data.data.settings);
-                    // Sync profitGoldRate with the fetched gold rate if not already set by user
-                    setProfitGoldRate(prev => prev === 0 ? (res.data.data.settings.goldRate || 0) : prev);
+                    // We only update the summary, but keep the input boxes empty as per user request
+                    // to allow manual entry every time.
                 }
             }
         } catch (error) {
@@ -102,7 +101,8 @@ const MonthlyBillingSummary = () => {
             const res = await api.post('/business/calculate', {
                 month: selectedMonth,
                 sriBillPercentage: Number(businessSettings.sriBillPercentage),
-                goldRate: Number(businessSettings.goldRate)
+                goldRate: Number(businessSettings.goldRate),
+                profitGoldRate: Number(profitGoldRate)
             });
             if (res.data.success) {
                 setBusinessSummary(res.data.data.summary);
@@ -198,76 +198,145 @@ const MonthlyBillingSummary = () => {
         setErrorMessage('');
         setInfoMessage('');
         try {
-            console.log('Starting frontend PDF generation with improved pagination...');
-            const element = printRef.current;
-            if (!element) {
-                alert('Internal Error: Print container not found');
-                throw new Error('Print container not found');
-            }
-
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: "#ffffff",
-                width: 800,
-                logging: false,
-                onclone: (clonedDoc) => {
-                    const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-                    styleElements.forEach(el => el.remove());
-
-                    const pageHeightPx = 1131; // A4 height at 800px width
-                    const container = clonedDoc.getElementById('pdf-report-content');
-                    if (!container) return;
-
-                    // Target sections and tables specifically to avoid row splitting
-                    const elementsToTrack = container.querySelectorAll('section, table, .summary-box');
-                    elementsToTrack.forEach(el => {
-                        const rect = el.getBoundingClientRect();
-                        const topRelative = rect.top - container.getBoundingClientRect().top;
-                        const bottomRelative = rect.bottom - container.getBoundingClientRect().top;
-
-                        const currentPage = Math.floor(topRelative / pageHeightPx);
-                        const nextPageBoundary = (currentPage + 1) * pageHeightPx;
-
-                        // If element crosses a boundary and is small enough to fit on one page
-                        if (bottomRelative > nextPageBoundary && rect.height < pageHeightPx - 100) {
-                            const padding = nextPageBoundary - topRelative;
-                            // Adding padding to a wrapper or spacer is more reliable than margin on tr
-                            const spacer = clonedDoc.createElement('div');
-                            spacer.style.height = `${padding + 10}px`;
-                            spacer.style.width = '100%';
-                            el.parentNode.insertBefore(spacer, el);
-                        }
-                    });
-                }
+            const response = await api.get('/reports/monthly/pdf', {
+                params: {
+                    month: selectedMonth,
+                    sriBillPercentage: Number(businessSettings.sriBillPercentage),
+                    goldRate: Number(businessSettings.goldRate),
+                    profitGoldRate: Number(profitGoldRate)
+                },
+                responseType: 'blob'
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-
-            const imgWidth = pdfWidth;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-            let heightLeft = imgHeight;
-            let position = 0;
-
-            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pdfHeight;
-
-            while (heightLeft > 0.5) {
-                pdf.addPage();
-                position = heightLeft - imgHeight;
-                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pdfHeight;
+            const contentType = response.headers?.['content-type'] || '';
+            if (contentType.includes('application/json')) {
+                const text = await response.data.text();
+                let message = 'Unable to download PDF';
+                try {
+                    const parsed = JSON.parse(text);
+                    message = parsed?.message || message;
+                } catch {
+                    // ignore
+                }
+                throw new Error(message);
             }
 
-            pdf.save(`Sri_Vaishnavi_Jewellers_Report_${selectedMonth}.pdf`);
-            setInfoMessage('PDF generated successfully!');
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `monthly-billing-summary-${selectedMonth}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            setInfoMessage('PDF downloaded successfully.');
         } catch (error) {
-            console.error('Error generating PDF:', error);
-            setErrorMessage('Failed to generate PDF: ' + (error.message || 'Unknown error'));
+            console.error('PDF download failed:', error);
+            setErrorMessage(error.message || error.response?.data?.message || 'Unable to download PDF');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleWhatsAppShare = async () => {
+        setExporting(true);
+        setErrorMessage('');
+        setInfoMessage('');
+        try {
+            const response = await api.get('/reports/monthly/pdf', {
+                params: {
+                    month: selectedMonth,
+                    sriBillPercentage: Number(businessSettings.sriBillPercentage),
+                    goldRate: Number(businessSettings.goldRate),
+                    profitGoldRate: Number(profitGoldRate)
+                },
+                responseType: 'blob'
+            });
+
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const file = new File([blob], `monthly-summary-${selectedMonth}.pdf`, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: `Monthly Billing Summary - ${selectedMonth}`,
+                    text: `Please find the Monthly Billing Summary for ${selectedMonth} attached.`
+                });
+                setInfoMessage('PDF shared successfully.');
+            } else {
+                window.alert('Direct file sharing is not supported on this browser. Opening WhatsApp with a download link instead.');
+                const phoneInput = window.prompt('Recipient WhatsApp number:');
+                const phone = phoneInput ? phoneInput.replace(/\D/g, '') : '';
+
+                const { data } = await api.get('/reports/monthly/pdf/share-link', {
+                    params: {
+                        month: selectedMonth,
+                        phone,
+                        sriBillPercentage: Number(businessSettings.sriBillPercentage),
+                        goldRate: Number(businessSettings.goldRate),
+                        profitGoldRate: Number(profitGoldRate)
+                    }
+                });
+
+                const fileUrl = data?.data?.fileUrl;
+                if (fileUrl) {
+                    const shareText = `Monthly Billing Summary (${selectedMonth}) PDF:\n${fileUrl}`;
+                    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+                    const mobileUrl = phone
+                        ? `whatsapp://send?phone=${phone}&text=${encodeURIComponent(shareText)}`
+                        : `whatsapp://send?text=${encodeURIComponent(shareText)}`;
+
+                    if (isMobile) {
+                        window.location.href = mobileUrl;
+                    } else {
+                        window.open(data?.data?.whatsappUrl, '_blank', 'noopener,noreferrer');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('WhatsApp share failed:', error);
+            setErrorMessage(error.message || 'Unable to share via WhatsApp');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleShare = async () => {
+        setExporting(true);
+        try {
+            const response = await api.get('/reports/monthly/pdf', {
+                params: {
+                    month: selectedMonth,
+                    sriBillPercentage: Number(businessSettings.sriBillPercentage),
+                    goldRate: Number(businessSettings.goldRate),
+                    profitGoldRate: Number(profitGoldRate)
+                },
+                responseType: 'blob'
+            });
+
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const file = new File([blob], `monthly-summary-${selectedMonth}.pdf`, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Monthly Billing Summary',
+                    text: `Monthly Summary for ${selectedMonth}`
+                });
+            } else {
+                const shareText = buildShareText();
+                await navigator.share({
+                    title: 'Monthly Billing Summary',
+                    text: shareText,
+                    url: window.location.href
+                });
+            }
+        } catch (error) {
+            console.error('Share failed:', error);
+            const shareText = buildShareText();
+            await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+            setInfoMessage('Summary copied to clipboard.');
         } finally {
             setExporting(false);
         }
@@ -381,7 +450,7 @@ const MonthlyBillingSummary = () => {
                 <div className="bg-white border border-gray-200 rounded-2xl p-5">
                     <div className="text-xs text-gray-500 uppercase font-black tracking-widest mb-2">Current Amount in the Business</div>
                     <div className="flex items-center gap-2">
-                        <input type="number" min="0" step="0.001" value={cashInput} onChange={(e) => setCashInput(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
+                        <input type="text" inputMode="decimal" value={cashInput} onChange={(e) => setCashInput(e.target.value.replace(/[^0-9.]/g, ''))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
                         <button onClick={saveCashBalance} disabled={savingCash} className="px-3 py-2 rounded-lg bg-[#b8860b] text-white font-bold disabled:opacity-60">
                             <Save size={15} />
                         </button>
@@ -699,12 +768,10 @@ const MonthlyBillingSummary = () => {
                                         <label className="block text-[11px] uppercase font-black tracking-widest text-amber-700 mb-1">SRI Bill (%)</label>
                                         <div className="flex items-center gap-2">
                                             <input
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                step="0.01"
+                                                type="text"
+                                                inputMode="decimal"
                                                 value={businessSettings.sriBillPercentage}
-                                                onChange={(e) => setBusinessSettings(prev => ({ ...prev, sriBillPercentage: e.target.value }))}
+                                                onChange={(e) => setBusinessSettings(prev => ({ ...prev, sriBillPercentage: e.target.value.replace(/[^0-9.]/g, '') }))}
                                                 className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
                                                 placeholder="e.g. 87"
                                             />
@@ -717,17 +784,26 @@ const MonthlyBillingSummary = () => {
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm font-bold text-amber-700">₹</span>
                                             <input
-                                                type="number"
-                                                min="0"
-                                                step="1"
+                                                type="text"
+                                                inputMode="decimal"
                                                 value={businessSettings.goldRate}
-                                                onChange={(e) => setBusinessSettings(prev => ({ ...prev, goldRate: e.target.value }))}
+                                                onChange={(e) => setBusinessSettings(prev => ({ ...prev, goldRate: e.target.value.replace(/[^0-9.]/g, '') }))}
                                                 className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
                                                 placeholder="e.g. 6500"
                                             />
                                             <span className="text-sm font-bold text-amber-700 whitespace-nowrap">/g</span>
                                         </div>
                                         <p className="text-[10px] text-amber-600 mt-1 font-medium">Used to calculate: Cash ÷ Gold Rate</p>
+                                    </div>
+                                    <div className="md:col-span-2 flex justify-end mt-2">
+                                        <button
+                                            onClick={recalculateBusiness}
+                                            disabled={isBusinessCalculating}
+                                            className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {isBusinessCalculating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                            {isBusinessCalculating ? 'Calculating...' : 'Recalculate & Save Stats'}
+                                        </button>
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -991,11 +1067,10 @@ const MonthlyBillingSummary = () => {
                                             <div className="flex items-center gap-1">
                                                 <span className="text-sm font-bold text-amber-600">₹</span>
                                                 <input
-                                                    type="number"
-                                                    min="0"
-                                                    step="1"
+                                                    type="text"
+                                                    inputMode="decimal"
                                                     value={profitGoldRate}
-                                                    onChange={(e) => setProfitGoldRate(e.target.value)}
+                                                    onChange={(e) => setProfitGoldRate(e.target.value.replace(/[^0-9.]/g, ''))}
                                                     className="w-full text-xl font-black text-gray-900 outline-none focus:ring-1 focus:ring-amber-300 rounded bg-transparent"
                                                     placeholder="e.g. 6500"
                                                 />
@@ -1020,14 +1095,36 @@ const MonthlyBillingSummary = () => {
                         )}
                     </section>
 
-                    <section className="bg-white border border-gray-200 rounded-2xl p-5">
+                    <section className="bg-white border border-gray-200 rounded-2xl p-5 mt-6">
                         <div className="flex flex-wrap items-center justify-end gap-3">
-                            <button onClick={handleDownloadPdf} disabled={exporting} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white font-bold text-sm">
+                            <button
+                                onClick={handleDownloadPdf}
+                                disabled={exporting}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white font-bold text-sm"
+                            >
                                 {exporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-                                {exporting ? 'Generating PDF...' : 'Download PDF'}
+                                {exporting ? 'Generating...' : 'Download PDF'}
+                            </button>
+                            <button
+                                onClick={handleWhatsAppShare}
+                                disabled={exporting}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm"
+                            >
+                                <Share2 size={16} />
+                                WhatsApp
+                            </button>
+                            <button
+                                onClick={handleShare}
+                                disabled={exporting}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white font-bold text-sm"
+                            >
+                                <Share2 size={16} />
+                                Share
                             </button>
                         </div>
                     </section>
+
+
                 </div>
             )}
 
@@ -1341,8 +1438,8 @@ const MonthlyBillingSummary = () => {
                                                 <p style={{ fontSize: '16px', fontWeight: '900', color: '#dc2626', margin: '4px 0' }}>₹{Number(expensesTotal).toLocaleString()}</p>
                                             </div>
                                             <div style={{ float: 'left', width: '23%', padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', marginRight: '2%', boxSizing: 'border-box' }}>
-                                                <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280', margin: 0 }}>GOLD RATE</p>
-                                                <p style={{ fontSize: '16px', fontWeight: '900', margin: '4px 0' }}>₹{businessSettings.goldRate}/g</p>
+                                                <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280', margin: 0 }}>PROFIT GOLD RATE</p>
+                                                <p style={{ fontSize: '16px', fontWeight: '900', margin: '4px 0' }}>₹{profitGoldRate}/g</p>
                                             </div>
                                             <div style={{ float: 'left', width: '23%', padding: '12px', backgroundColor: '#eef2ff', border: '1px solid #e0e7ff', borderRadius: '8px', boxSizing: 'border-box' }}>
                                                 <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#4f46e5', margin: 0 }}>NET PROFIT</p>
@@ -1350,7 +1447,7 @@ const MonthlyBillingSummary = () => {
                                                     {(() => {
                                                         const totalProfit = Number(summary?.plusSummaryTotals?.totalProfit || 0);
                                                         const expenses = Number(expensesTotal || 0);
-                                                        const rate = Number(businessSettings.goldRate || 0);
+                                                        const rate = Number(profitGoldRate || 0);
                                                         const balance = rate > 0 ? (totalProfit - (expenses / rate)) : totalProfit;
                                                         return number3(balance);
                                                     })()} g

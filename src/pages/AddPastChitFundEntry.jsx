@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '../axiosConfig';
 
@@ -9,6 +9,8 @@ const getCurrentTime = () =>
 
 const AddPastChitFundEntry = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEdit = Boolean(id);
     const [form, setForm] = useState({
         customerName: '',
         phoneNumber: '',
@@ -24,17 +26,41 @@ const AddPastChitFundEntry = () => {
     const [customerSuggestions, setCustomerSuggestions] = useState([]);
 
     useEffect(() => {
-        const fetchRate = async () => {
-            try {
-                const { data } = await api.get('/dashboard/gold-rate');
-                const rate = Number(data?.data?.rate || 0);
-                setForm((prev) => ({ ...prev, goldRateToday: rate ? String(rate) : '' }));
-            } catch (error) {
-                console.error('Failed to fetch today rate', error);
-            }
-        };
-        fetchRate();
-    }, []);
+        if (isEdit) {
+            const fetchEntry = async () => {
+                try {
+                    const { data } = await api.get(`/chit-funds/${id}`);
+                    if (data.success && data.data) {
+                        const entry = data.data;
+                        setForm({
+                            customerName: entry.customerName || '',
+                            phoneNumber: entry.phoneNumber || '',
+                            date: entry.date ? entry.date.split('T')[0] : getTodayDate(),
+                            time: entry.time || getCurrentTime(),
+                            amount: String(entry.amount || ''),
+                            gramsPurchased: String(entry.gramsPurchased || ''),
+                            goldRateToday: String(entry.goldRateToday || '')
+                        });
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch past chit entry:', error);
+                    setToast({ type: 'error', message: 'Failed to fetch entry details' });
+                }
+            };
+            fetchEntry();
+        } else {
+            const fetchRate = async () => {
+                try {
+                    const { data } = await api.get('/dashboard/gold-rate');
+                    const rate = Number(data?.data?.rate || 0);
+                    setForm((prev) => ({ ...prev, goldRateToday: rate ? String(rate) : '' }));
+                } catch (error) {
+                    console.error('Failed to fetch today rate', error);
+                }
+            };
+            fetchRate();
+        }
+    }, [id, isEdit]);
 
     const validate = () => {
         const nextErrors = {};
@@ -43,6 +69,8 @@ const AddPastChitFundEntry = () => {
         if (!form.date) nextErrors.date = 'Date is required';
         const amount = Number(form.amount);
         if (!Number.isFinite(amount) || amount <= 0) nextErrors.amount = 'Amount must be a positive number';
+        const rate = Number(form.goldRateToday);
+        if (!Number.isFinite(rate) || rate <= 0) nextErrors.goldRateToday = 'Gold rate must be positive';
         const grams = Number(form.gramsPurchased);
         if (!Number.isFinite(grams) || grams <= 0) nextErrors.gramsPurchased = 'Grams purchased must be a positive number';
         setErrors(nextErrors);
@@ -50,7 +78,19 @@ const AddPastChitFundEntry = () => {
     };
 
     const onChange = (field, value) => {
-        setForm((prev) => ({ ...prev, [field]: value }));
+        setForm((prev) => {
+            const next = { ...prev, [field]: value };
+
+            if (field === 'amount' || field === 'goldRateToday') {
+                const amt = Number(field === 'amount' ? value : next.amount);
+                const rate = Number(field === 'goldRateToday' ? value : next.goldRateToday);
+                if (amt > 0 && rate > 0) {
+                    next.gramsPurchased = (amt / rate).toFixed(3);
+                }
+            }
+
+            return next;
+        });
         setErrors((prev) => ({ ...prev, [field]: undefined }));
     };
 
@@ -84,19 +124,26 @@ const AddPastChitFundEntry = () => {
         if (!validate()) return;
         setSubmitting(true);
         try {
-            await api.post('/chit-funds', {
+            const payload = {
                 customerName: form.customerName.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 date: form.date,
                 time: form.time,
                 amount: Number(form.amount),
                 gramsPurchased: Number(form.gramsPurchased),
-                goldRateToday: Number(form.goldRateToday || 1),
+                goldRateToday: Number(form.goldRateToday),
                 isPastEntry: true
-            });
+            };
+
+            if (isEdit) {
+                await api.put(`/chit-funds/${id}`, payload);
+            } else {
+                await api.post('/chit-funds', payload);
+            }
+
             navigate('/admin/chit', {
                 state: {
-                    toast: { type: 'success', message: 'Past chit entry added successfully' }
+                    toast: { type: 'success', message: isEdit ? 'Past chit entry updated successfully' : 'Past chit entry added successfully' }
                 }
             });
         } catch (error) {
@@ -123,8 +170,8 @@ const AddPastChitFundEntry = () => {
                 </button>
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                     <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/80">
-                        <h1 className="text-2xl font-black text-gray-900">Add Past Chit Entry</h1>
-                        <p className="text-gray-500 mt-1">Use this to add old purchase records with direct amount and grams.</p>
+                        <h1 className="text-2xl font-black text-gray-900">{isEdit ? 'Edit' : 'Add'} Past Chit Entry</h1>
+                        <p className="text-gray-500 mt-1">{isEdit ? 'Update existing past chit record.' : 'Use this to add old purchase records with direct amount and grams.'}</p>
                     </div>
                     <form onSubmit={onSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="md:col-span-2">
@@ -155,6 +202,11 @@ const AddPastChitFundEntry = () => {
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Amount *</label>
                             <input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => onChange('amount', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" placeholder="Enter amount" />
                             {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Gold Rate *</label>
+                            <input type="number" min="0" step="0.01" value={form.goldRateToday} onChange={(e) => onChange('goldRateToday', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" placeholder="Enter gold rate" />
+                            {errors.goldRateToday && <p className="mt-1 text-sm text-red-600">{errors.goldRateToday}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Grams Purchased *</label>

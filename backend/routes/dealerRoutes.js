@@ -7,7 +7,8 @@ const {
     addDealerStock,
     getItemDetails,
     getDealerTransactions,
-    deleteDealer
+    deleteDealer,
+    deleteDealerTransaction
 } = require('../controllers/dealerController');
 const { protect } = require('../middlewares/authMiddleware');
 
@@ -20,6 +21,8 @@ router.get('/transactions', getDealerTransactions);
 router.route('/:id')
     .get(getDealerById)
     .delete(deleteDealer);
+
+router.delete('/transactions/:id', deleteDealerTransaction);
 
 router.post('/opening-balance', setOpeningBalance);
 router.post('/stock-in', addDealerStock);

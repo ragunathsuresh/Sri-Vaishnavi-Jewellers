@@ -7,30 +7,37 @@ dotenv.config();
 
 const seedAdmin = async () => {
     try {
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log('MongoDB Connected');
+        const mongoUri = process.env.MONGO_URI;
+        const email = process.env.INITIAL_ADMIN_EMAIL || 'admin@example.com';
+        const password = process.env.INITIAL_ADMIN_PASSWORD || 'admin123';
 
-        const adminExists = await Admin.findOne({ email: 'ragusuresh291@gmail.com' });
-
-        if (adminExists) {
-            console.log('Admin already exists');
-            // Update password just in case it's different
-            adminExists.password = 'Ragunath@2006';
-            await adminExists.save();
-            console.log('Admin password updated');
-            process.exit();
+        if (!mongoUri) {
+            throw new Error('MONGO_URI is not defined in .env');
         }
 
-        const admin = new Admin({
-            name: 'Sri Vaishnavi Admin',
-            email: 'ragusuresh291@gmail.com',
-            password: 'Ragunath@2006',
-            role: 'admin'
-        });
+        await mongoose.connect(mongoUri);
+        console.log('MongoDB Connected');
 
-        await admin.save();
-        console.log('Admin created successfully');
-        process.exit();
+        let admin = await Admin.findOne({ email });
+
+        if (admin) {
+            console.log(`Admin with email ${email} already exists. Updating password...`);
+            admin.password = password;
+            await admin.save();
+            console.log('Admin password updated successfully');
+        } else {
+            console.log(`Creating new admin with email: ${email}`);
+            admin = new Admin({
+                name: 'Sri Vaishnavi Admin',
+                email: email,
+                password: password,
+                role: 'admin'
+            });
+            await admin.save();
+            console.log('Admin created successfully');
+        }
+
+        process.exit(0);
     } catch (error) {
         console.error(`Error: ${error.message}`);
         process.exit(1);

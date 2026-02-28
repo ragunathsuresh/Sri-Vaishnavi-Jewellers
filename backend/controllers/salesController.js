@@ -231,12 +231,140 @@ const getSales = async (req, res) => {
 const getSaleById = async (req, res) => {
     try {
         const sale = await Sale.findById(req.params.id);
-        if (!sale) {
-            return res.status(404).json({ message: 'Transaction not found' });
-        }
+        if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
         res.status(200).json({ success: true, data: sale });
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error', error: error.message });
+        res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
+    }
+};
+
+const updateSale = async (req, res) => {
+    try {
+        const existingSale = await Sale.findById(req.params.id).lean();
+        if (!existingSale) return res.status(404).json({ success: false, message: 'Sale not found' });
+
+        // Reverse stock for existing items
+        if (existingSale.issuedItems && existingSale.issuedItems.length > 0) {
+            for (const item of existingSale.issuedItems) {
+                const stockItem = await Stock.findOne({ serialNo: item.serialNo });
+                if (stockItem) {
+                    stockItem.currentCount = (stockItem.currentCount || 0) + (parseInt(item.purchaseCount) || 1);
+                    await stockItem.save();
+                }
+            }
+        }
+        if (existingSale.receiptItems && existingSale.receiptItems.length > 0) {
+            for (const item of existingSale.receiptItems) {
+                await Stock.deleteOne({ serialNo: item.serialNo, category: 'Exchange' });
+            }
+        }
+
+        // Apply new data (stock reduction)
+        const { saleType, customerDetails, date, time, issuedItems, receiptItems } = req.body;
+        if (issuedItems && issuedItems.length > 0) {
+            for (const item of issuedItems) {
+                const stockItem = await Stock.findOne({ serialNo: item.serialNo });
+                if (stockItem) {
+                    stockItem.currentCount = Math.max(0, (stockItem.currentCount || 0) - (parseInt(item.purchaseCount) || 1));
+                    await stockItem.save();
+                }
+            }
+        }
+
+        const finalReceiptItems = [];
+        if (receiptItems && receiptItems.length > 0) {
+            for (const item of receiptItems) {
+                const finalSerial = await resolveUniqueSerialNo(item.serialNo);
+                await Stock.create({
+                    serialNo: finalSerial,
+                    itemName: item.receiptType,
+                    jewelleryType: (item.receiptType || '').includes('Gold') ? 'Gold' : 'Other',
+                    category: 'Exchange',
+                    designName: 'Customer Return (Update)',
+                    supplierName: customerDetails?.name || '',
+                    purchaseInvoiceNo: item.billNo || 'RECEIPT',
+                    grossWeight: item.weight || 0,
+                    netWeight: (parseFloat(item.weight) || 0) - (parseFloat(item.less) || 0),
+                    purity: item.purity || '0.000',
+                    currentCount: parseInt(item.purchaseCount) || 1,
+                    purchaseCount: parseInt(item.purchaseCount) || 1
+                });
+                finalReceiptItems.push({ ...item, serialNo: finalSerial });
+            }
+        } else {
+            finalReceiptItems.push(...(receiptItems || []));
+        }
+
+        const dataToUpdate = {
+            saleType,
+            customerDetails,
+            date,
+            time,
+            issuedItems,
+            receiptItems: finalReceiptItems.length > 0 ? finalReceiptItems : receiptItems
+        };
+
+        const updatedSale = await Sale.findByIdAndUpdate(req.params.id, dataToUpdate, { new: true });
+        res.status(200).json({ success: true, data: updatedSale });
+    } catch (error) {
+        console.error('Update Sale Error:', error);
+        res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
+    }
+};
+
+const deleteSale = async (req, res) => {
+    try {
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) {
+            return res.status(404).json({ success: false, message: 'Transaction not found' });
+        }
+
+        // 1. Reverse stock for Issued Items (add back)
+        if (sale.issuedItems && sale.issuedItems.length > 0) {
+            for (const item of sale.issuedItems) {
+                const stockItem = await Stock.findOne({
+                    serialNo: { $regex: new RegExp(`^${item.serialNo.trim()}$`, 'i') }
+                });
+                if (stockItem) {
+                    const count = parseInt(item.purchaseCount) || 1;
+                    stockItem.currentCount = (stockItem.currentCount || 0) + count;
+                    await stockItem.save();
+                }
+            }
+        }
+
+        // 2. Reverse stock for Receipt Items (remove)
+        if (sale.receiptItems && sale.receiptItems.length > 0) {
+            for (const item of sale.receiptItems) {
+                // For receipts, we created a new stock entry. We should find and delete it.
+                // We don't have the exact ID, but we can search by serial number if it was uniquely generated.
+                // Actually, receipt items in the Sale model have a serialNo (either requested or generated).
+                await Stock.deleteOne({
+                    serialNo: { $regex: new RegExp(`^${item.serialNo.trim()}$`, 'i') },
+                    category: 'Exchange' // Added safety check
+                });
+            }
+        }
+
+        // 3. Reverse account balances
+        if (sale.issuedItems && sale.issuedItems.length > 0) {
+            for (const item of sale.issuedItems) {
+                if (item.paidAmount > 0) {
+                    const accountType = item.paymentMode === 'Cash' ? 'Cash' : 'Bank';
+                    await Account.findOneAndUpdate(
+                        { type: accountType },
+                        { $inc: { balance: -item.paidAmount } }
+                    );
+                }
+            }
+        }
+
+        await Sale.findByIdAndDelete(req.params.id);
+
+        res.status(200).json({ success: true, message: 'Transaction deleted and stock/balances reversed.' });
+    } catch (error) {
+        console.error('Error deleting sale:', error);
+        res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
     }
 };
 
@@ -244,5 +372,7 @@ module.exports = {
     createSale,
     searchCustomer,
     getSales,
-    getSaleById
+    getSaleById,
+    updateSale,
+    deleteSale
 };

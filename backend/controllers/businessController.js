@@ -6,10 +6,11 @@ const calculate = async (req, res) => {
         const userId = req.user._id;
 
         // Update settings if provided
-        if (req.body.sriBillPercentage !== undefined || req.body.goldRate !== undefined) {
+        if (req.body.sriBillPercentage !== undefined || req.body.goldRate !== undefined || req.body.profitGoldRate !== undefined) {
             await businessService.updateSettings(month, {
                 sriBillPercentage: req.body.sriBillPercentage,
                 goldRate: req.body.goldRate,
+                profitGoldRate: req.body.profitGoldRate,
                 effectiveDateStart: new Date(`${month}-01T00:00:00.000Z`),
                 effectiveDateEnd: new Date(new Date(`${month}-01T00:00:00.000Z`).setUTCMonth(new Date(`${month}-01T00:00:00.000Z`).getUTCMonth() + 1))
             }, userId);

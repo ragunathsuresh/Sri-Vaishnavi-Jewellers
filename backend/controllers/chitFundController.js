@@ -171,13 +171,13 @@ const createChitFund = async (req, res) => {
 
         const isManualPastEntry = Boolean(isPastEntry);
         let resolvedRateApplied = rateApplied == null ? resolvedGoldRateToday : parsePositiveNumber(rateApplied);
-        let resolvedGrams = null;
-        if (isManualPastEntry) {
-            const parsedGrams = parsePositiveNumber(gramsPurchased);
-            if (!parsedGrams) {
-                return res.status(400).json({ success: false, message: 'Grams purchased must be a positive number for past entry' });
-            }
-            resolvedGrams = Number(parsedGrams.toFixed(6));
+        let resolvedGrams = parsePositiveNumber(gramsPurchased);
+        if (isManualPastEntry && !resolvedGrams) {
+            return res.status(400).json({ success: false, message: 'Grams purchased must be a positive number for past entry' });
+        }
+
+        if (resolvedGrams) {
+            resolvedGrams = Number(resolvedGrams.toFixed(6));
             if (!resolvedRateApplied) {
                 resolvedRateApplied = Number((parsedAmount / resolvedGrams).toFixed(6));
             }
@@ -194,7 +194,7 @@ const createChitFund = async (req, res) => {
             isPastEntry: isManualPastEntry,
             goldRateToday: resolvedGoldRateToday,
             rateApplied: resolvedRateApplied,
-            ...(isManualPastEntry ? { gramsPurchased: resolvedGrams } : {})
+            gramsPurchased: resolvedGrams
         };
 
         const created = await ChitFund.create(payload);

@@ -45,10 +45,13 @@ function App() {
                             <Route path="receivable" element={<DebtReceivable />} />
                             <Route path="payable" element={<DebtPayable />} />
                             <Route path="sales" element={<SalesEntry />} />
+                            <Route path="sales/edit/:id" element={<SalesEntry />} />
                             <Route path="transactions" element={<Transactions />} />
                             <Route path="chit" element={<ChitFunds />} />
                             <Route path="chit/past/new" element={<AddPastChitFundEntry />} />
+                            <Route path="chit/past/edit/:id" element={<AddPastChitFundEntry />} />
                             <Route path="chit/new" element={<AddChitFundEntry />} />
+                            <Route path="chit/edit/:id" element={<AddChitFundEntry />} />
                             <Route path="expenses" element={<ExpensePage />} />
 
                             {/* Line Stock Routes */}

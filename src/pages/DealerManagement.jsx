@@ -12,10 +12,11 @@ import {
     RefreshCw,
     ShoppingCart
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const DealerManagement = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [dealers, setDealers] = useState([]);
     const [dealerName, setDealerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -74,7 +75,21 @@ const DealerManagement = () => {
     const fetchDealers = async () => {
         try {
             const res = await api.get('/dealers');
-            setDealers(res.data.data);
+            const dealerData = res.data.data;
+            setDealers(dealerData);
+
+            // Pre-select if passed in state
+            if (location.state?.dealerName) {
+                const name = location.state.dealerName;
+                setDealerName(name);
+                const dealer = dealerData.find(d => (d.name || '').trim().toLowerCase() === name.trim().toLowerCase());
+                if (dealer) {
+                    setSelectedDealerId(dealer._id);
+                    setSelectedDealer(dealer);
+                    setPhoneNumber(dealer.phoneNumber);
+                    setCurrentBalance(dealer.runningBalance);
+                }
+            }
         } catch (error) {
             console.error('Error fetching dealers:', error);
         }
@@ -709,8 +724,8 @@ const DealerManagement = () => {
 
             {message && (
                 <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border text-sm font-bold animate-in fade-in slide-in-from-top-4 duration-300 ${message.includes('Error') || message.includes('⚠️')
-                        ? 'bg-red-50 border-red-200 text-red-700'
-                        : 'bg-green-50 border-green-200 text-green-700'
+                    ? 'bg-red-50 border-red-200 text-red-700'
+                    : 'bg-green-50 border-green-200 text-green-700'
                     }`}>
                     <span>{message}</span>
                     <button onClick={() => setMessage('')} className="ml-2 text-current opacity-50 hover:opacity-100 transition-opacity font-black text-base leading-none">&times;</button>
