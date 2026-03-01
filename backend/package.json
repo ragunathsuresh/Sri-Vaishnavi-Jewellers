@@ -27,13 +27,13 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.1",
     "nodemailer": "^8.0.1",
-    "nodemon": "^3.1.11",
     "pdfkit": "^0.17.2"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
     "jest": "^30.2.0",
     "mongodb-memory-server": "^11.0.1",
+    "nodemon": "^3.1.11",
     "supertest": "^7.2.2"
   }
 }
