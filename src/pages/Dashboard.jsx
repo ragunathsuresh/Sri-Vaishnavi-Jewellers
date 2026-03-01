@@ -208,9 +208,9 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs md:text-sm font-semibold text-gray-700">
+                    <div className="flex items-center justify-start lg:justify-end gap-2 w-full lg:w-auto overflow-x-auto lg:overflow-visible no-scrollbar">
+                        <div className="flex items-center gap-2 flex-nowrap">
+                            <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs md:text-sm font-semibold text-gray-700 whitespace-nowrap">
                                 <Calendar size={14} className="text-gray-500" />
                                 <input
                                     type="date"
@@ -220,14 +220,14 @@ const Dashboard = () => {
                                 />
                             </label>
 
-                            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs md:text-sm font-semibold text-gray-700">
+                            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs md:text-sm font-semibold text-gray-700 whitespace-nowrap">
                                 <Clock3 size={14} className="text-gray-500" />
                                 <span className="whitespace-nowrap">{format(currentTime, 'hh:mm:ss a')} IST</span>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2">
-                            <div>
+                        <div className="flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2 whitespace-nowrap">
+                            <div className="flex flex-col justify-center">
                                 <p className="text-[9px] md:text-[11px] font-semibold uppercase tracking-wide text-gray-500 leading-none mb-1">Gold Rate (22k)</p>
                                 {isEditingGold ? (
                                     <input
@@ -240,14 +240,14 @@ const Dashboard = () => {
                                         autoFocus
                                     />
                                 ) : (
-                                    <p className="text-sm md:text-2xl font-black text-gray-900 leading-none">
+                                    <p className="text-sm md:text-2xl font-black text-gray-900 leading-none flex items-baseline">
                                         Rs.{Number(goldRate || 0).toLocaleString()}
                                         {isMobile ? "" : <span className="text-xs md:text-base font-medium text-gray-500 ml-1">/gm</span>}
                                     </p>
                                 )}
                             </div>
                             {!isReadOnly && (
-                                <button onClick={() => setIsEditingGold(true)} className="rounded-lg p-1.5 text-yellow-700 hover:bg-yellow-100">
+                                <button onClick={() => setIsEditingGold(true)} className="rounded-lg p-1.5 text-yellow-700 hover:bg-yellow-100 flex-shrink-0">
                                     <Edit2 size={14} />
                                 </button>
                             )}
