@@ -64,6 +64,17 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/business', businessRoutes);
 
+// Vercel Cron Job Route
+app.get('/api/cron/cleanup', async (req, res) => {
+    try {
+        const { runCleanup } = require('./services/dataRetentionService');
+        await runCleanup();
+        res.status(200).json({ success: true, message: 'Cleanup successful' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Error Handling
 app.use(notFound);
 app.use(errorHandler);

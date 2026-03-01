@@ -13,6 +13,12 @@
             }
         }
     ],
+    "crons": [
+        {
+            "path": "/api/cron/cleanup",
+            "schedule": "30 0 * * *"
+        }
+    ],
     "routes": [
         {
             "handle": "filesystem"

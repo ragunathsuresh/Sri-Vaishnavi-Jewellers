@@ -204,7 +204,7 @@ const Dashboard = () => {
                         />
                         <div>
                             <h1 className="text-xl md:text-[44px] leading-[1] font-black uppercase tracking-wide text-yellow-500">Sri Vaishnavi Jewellers</h1>
-                            <p className="text-[10px] md:text-sm text-gray-600">Main Bazaar, Trichy</p>
+                            <p className="text-[10px] md:text-sm text-gray-600">Main Bazaar, Trichy <span className="text-[8px] opacity-30">v1.1.0</span></p>
                         </div>
                     </div>
 
