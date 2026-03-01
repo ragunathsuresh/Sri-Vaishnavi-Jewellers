@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
                     setUser(parsedUser);
                     console.log('[AuthContext] User restored from storage:', parsedUser.name);
                 }
-            } catch (error) {
+            } catch {
                 console.log('[AuthContext] Authentication check failed or no session');
                 setUser(null);
                 localStorage.removeItem('userInfo');
@@ -50,22 +50,25 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            // Get CSRF token first (if needed, but csurf with cookie handles it usually? 
-            // no, we need to send it in header if configured that way.
-            // But with csurf + cookie:true, it expects X-XSRF-TOKEN header which axios reads from cookie if configured.
-            // Let's check csurf config. We used cookie: true. 
-            // So client needs to read XSRF-TOKEN cookie and send it as header.
-            // Axios does this automatically if xsrfCookieName is set.
-            // express csurf defaults: cookie key '_csrf' (if stored in cookie), 
-            // but value is also sent in response. 
-            // Wait, standard csurf with cookie:true expects token in 'X-XSRF-TOKEN' header 
-            // and the secret in the cookie.
-
-            // Let's fetch CSRF token manually to be safe
-            const { data: { csrfToken } } = await api.get('/auth/csrf-token');
-            api.defaults.headers.common['X-CSRF-Token'] = csrfToken;
-
-            const { data } = await api.post('/auth/login', { email, password });
+            // Attempt login directly first. Some deployments do not require the CSRF preflight for this route.
+            let data;
+            try {
+                const response = await api.post('/auth/login', { email, password });
+                data = response.data;
+            } catch (error) {
+                // If backend expects a CSRF header/cookie pair, fetch token and retry once.
+                if (error.response?.status === 403) {
+                    const csrfRes = await api.get('/auth/csrf-token');
+                    const csrfToken = csrfRes?.data?.csrfToken;
+                    if (csrfToken) {
+                        api.defaults.headers.common['X-CSRF-Token'] = csrfToken;
+                    }
+                    const retryResponse = await api.post('/auth/login', { email, password });
+                    data = retryResponse.data;
+                } else {
+                    throw error;
+                }
+            }
             setUser(data);
             localStorage.setItem('userInfo', JSON.stringify(data));
             return { success: true };

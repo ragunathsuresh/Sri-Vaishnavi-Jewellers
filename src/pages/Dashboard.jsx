@@ -194,7 +194,7 @@ const Dashboard = () => {
             }}
         >
             <div className="bg-white/70 backdrop-blur-md border-b border-gray-200 px-8 py-5 sticky top-0 z-50">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                     <div className="flex items-center gap-3 md:gap-5">
                         <img
                             src="/logo.png"
@@ -206,20 +206,12 @@ const Dashboard = () => {
                             <h1 className="text-xl md:text-[44px] leading-[1] font-black uppercase tracking-wide text-yellow-500">Sri Vaishnavi Jewellers</h1>
                             <p className="text-[10px] md:text-sm text-gray-600">Main Bazaar, Trichy</p>
                         </div>
-                        {!isMobile && (
-                            <img
-                                src="/logo.png"
-                                alt="right emblem"
-                                className="h-12 w-12 rounded-full border-2 border-yellow-400 object-contain bg-white"
-                                onError={(e) => { e.target.src = "https://ui-avatars.com/api/?name=SV&background=111827&color=facc15&bold=true&size=64" }}
-                            />
-                        )}
                     </div>
 
-                    {!isMobile && (
-                        <div className="flex items-center gap-3 whitespace-nowrap">
-                            <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700">
-                                <Calendar size={16} className="text-gray-500" />
+                    <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs md:text-sm font-semibold text-gray-700">
+                                <Calendar size={14} className="text-gray-500" />
                                 <input
                                     type="date"
                                     value={selectedDate}
@@ -228,37 +220,39 @@ const Dashboard = () => {
                                 />
                             </label>
 
-                            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700">
-                                <Clock3 size={16} className="text-gray-500" />
-                                {format(currentTime, 'hh:mm:ss a')} IST
+                            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs md:text-sm font-semibold text-gray-700">
+                                <Clock3 size={14} className="text-gray-500" />
+                                <span className="whitespace-nowrap">{format(currentTime, 'hh:mm:ss a')} IST</span>
                             </div>
+                        </div>
 
-                            <div className="flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-2.5">
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Gold Rate (22k)</p>
-                                    {isEditingGold ? (
-                                        <input
-                                            type="number"
-                                            value={goldRate}
-                                            onChange={(e) => setGoldRate(e.target.value)}
-                                            onBlur={handleUpdateGoldRate}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleUpdateGoldRate()}
-                                            className="w-28 bg-transparent text-2xl font-black text-gray-900 outline-none"
-                                            autoFocus
-                                        />
-                                    ) : (
-                                        <p className="text-2xl font-black text-gray-900">Rs.{Number(goldRate || 0).toLocaleString()} <span className="text-base font-medium text-gray-500">/gm</span></p>
-                                    )}
-                                </div>
-                                {!isReadOnly && (
-                                    <button onClick={() => setIsEditingGold(true)} className="rounded-lg p-2 text-yellow-700 hover:bg-yellow-100">
-                                        <Edit2 size={17} />
-                                    </button>
+                        <div className="flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2">
+                            <div>
+                                <p className="text-[9px] md:text-[11px] font-semibold uppercase tracking-wide text-gray-500 leading-none mb-1">Gold Rate (22k)</p>
+                                {isEditingGold ? (
+                                    <input
+                                        type="number"
+                                        value={goldRate}
+                                        onChange={(e) => setGoldRate(e.target.value)}
+                                        onBlur={handleUpdateGoldRate}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateGoldRate()}
+                                        className="w-20 md:w-28 bg-transparent text-lg md:text-2xl font-black text-gray-900 outline-none"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <p className="text-sm md:text-2xl font-black text-gray-900 leading-none">
+                                        Rs.{Number(goldRate || 0).toLocaleString()}
+                                        {isMobile ? "" : <span className="text-xs md:text-base font-medium text-gray-500 ml-1">/gm</span>}
+                                    </p>
                                 )}
                             </div>
-
+                            {!isReadOnly && (
+                                <button onClick={() => setIsEditingGold(true)} className="rounded-lg p-1.5 text-yellow-700 hover:bg-yellow-100">
+                                    <Edit2 size={14} />
+                                </button>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
 

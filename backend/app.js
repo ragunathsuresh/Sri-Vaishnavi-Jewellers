@@ -17,6 +17,9 @@ const { notFound, errorHandler } = require('./middlewares/errorMiddleware');
 
 const app = express();
 
+// Trust proxy for deployments behind reverse proxies (e.g., Vercel)
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`);
@@ -28,11 +31,13 @@ app.use(cookieParser());
 // CORS configuration
 app.use(cors({
     origin: (origin, callback) => {
+        const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
         const allowedOrigins = [
             process.env.FRONTEND_URL,
             'http://localhost:5173',
             'http://localhost:5174',
             'http://localhost:5175',
+            vercelUrl,
             'https://sri-vaishnavi-jewellers.vercel.app', // Example domain, user should update FRONTEND_URL
             'https://sri-vaishnavi-jewellers-frontend.vercel.app'
         ].filter(Boolean);

@@ -25,7 +25,8 @@ export const DeviceProvider = ({ children }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const isReadOnly = screenSize.isMobile || screenSize.isTablet;
+    // Removed device-based read-only restriction as per user request for full functionality on all devices.
+    const isReadOnly = false;
 
     return (
         <DeviceContext.Provider value={{ ...screenSize, isReadOnly }}>

@@ -348,11 +348,9 @@ const Transactions = () => {
                     </h1>
                 </div>
                 <div className="flex items-center gap-3">
-                    {!isMobile && (
-                        <button className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-400 hover:text-gray-900 hover:border-gray-900 transition-all shadow-sm">
-                            <Clock size={20} />
-                        </button>
-                    )}
+                    <button className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-400 hover:text-gray-900 hover:border-gray-900 transition-all shadow-sm">
+                        <Clock size={20} />
+                    </button>
                     {!isReadOnly && (
                         <button onClick={() => navigate('/admin/sales')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-yellow-400 text-gray-900 px-6 py-2.5 rounded-xl font-black text-sm hover:bg-yellow-500 transition-all shadow-lg shadow-yellow-100">
                             <Plus size={18} /> New Sale
