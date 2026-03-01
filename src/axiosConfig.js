@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: import.meta.env.VITE_API_URL || '/api',
     withCredentials: true,
 });
 
@@ -54,7 +54,7 @@ api.interceptors.response.use(
 
             return new Promise(function (resolve, reject) {
                 // Use baseline axios to avoid interceptors for the refresh call
-                axios.post('http://localhost:5000/api/auth/refresh', {}, { withCredentials: true })
+                axios.post(`${import.meta.env.VITE_API_URL || '/api'}/auth/refresh`, {}, { withCredentials: true })
                     .then(() => {
                         isRefreshing = false;
                         processQueue(null);
