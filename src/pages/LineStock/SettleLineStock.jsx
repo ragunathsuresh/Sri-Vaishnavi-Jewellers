@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Info, User, Search, Trash2, Plus, X, Package } from 'lucide-react';
 import { lineStockService } from '../../services/lineStockService';
 import api from '../../axiosConfig';
+import { useDevice } from '../../context/DeviceContext';
 
 const SettleLineStock = () => {
+    const { isReadOnly } = useDevice();
     const { id } = useParams();
     const navigate = useNavigate();
     const [lineStock, setLineStock] = useState(null);
@@ -298,37 +300,39 @@ const SettleLineStock = () => {
 
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         {/* Manual Product Search Section */}
-                        <div className="p-8 border-b border-gray-50 bg-amber-50/30 flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-[#b8860b] text-white rounded-lg">
-                                    <Plus size={20} />
+                        {!isReadOnly && (
+                            <div className="p-8 border-b border-gray-50 bg-amber-50/30 flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-[#b8860b] text-white rounded-lg">
+                                        <Plus size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-gray-800 uppercase tracking-tight text-sm">Add Product Details</h3>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Enter item No to manually add products sold or returned</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="font-black text-gray-800 uppercase tracking-tight text-sm">Add Product Details</h3>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Enter item No to manually add products sold or returned</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
+                                        <input
+                                            type="text"
+                                            placeholder="Item No (e.g. SV-001)"
+                                            className="w-64 pl-10 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all font-bold text-sm bg-white"
+                                            value={serialToSearch}
+                                            onChange={(e) => setSerialToSearch(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSearchProduct()}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleSearchProduct}
+                                        disabled={searchLoading}
+                                        className="px-6 py-3 bg-[#b8860b] hover:bg-[#8b6508] disabled:bg-gray-200 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
+                                    >
+                                        {searchLoading ? 'Searching...' : 'Add Item'}
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
-                                    <input
-                                        type="text"
-                                        placeholder="Item No (e.g. SV-001)"
-                                        className="w-64 pl-10 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all font-bold text-sm bg-white"
-                                        value={serialToSearch}
-                                        onChange={(e) => setSerialToSearch(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchProduct()}
-                                    />
-                                </div>
-                                <button
-                                    onClick={handleSearchProduct}
-                                    disabled={searchLoading}
-                                    className="px-6 py-3 bg-[#b8860b] hover:bg-[#8b6508] disabled:bg-gray-200 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
-                                >
-                                    {searchLoading ? 'Searching...' : 'Add Item'}
-                                </button>
-                            </div>
-                        </div>
+                        )}
 
                         <table className="w-full text-left">
                             <thead className="bg-[#fdfbf7] border-b border-gray-50 text-[#b8860b] uppercase text-[10px] font-black tracking-widest">
@@ -338,7 +342,7 @@ const SettleLineStock = () => {
                                     <th className="px-6 py-5">Sold (Edit)</th>
                                     <th className="px-6 py-5">Returned</th>
                                     <th className="px-6 py-5">Value (g)</th>
-                                    <th className="px-6 py-5">Action</th>
+                                    {!isReadOnly && <th className="px-6 py-5">Action</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -355,9 +359,10 @@ const SettleLineStock = () => {
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    readOnly={isReadOnly}
                                                     value={item.issuedQty}
                                                     onChange={(e) => handleIssuedQtyChange(idx, e.target.value)}
-                                                    className="w-20 px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-black text-gray-800 text-center"
+                                                    className={`w-20 px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-black text-gray-800 text-center ${isReadOnly ? 'bg-gray-100' : ''}`}
                                                 />
                                             ) : (
                                                 <div className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-black inline-block">
@@ -369,10 +374,11 @@ const SettleLineStock = () => {
                                             <input
                                                 type="number"
                                                 min="0"
+                                                readOnly={isReadOnly}
                                                 max={item.issuedQty}
                                                 value={item.soldQty}
                                                 onChange={(e) => handleSoldQtyChange(idx, e.target.value)}
-                                                className="w-20 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#b8860b] font-black text-gray-800 text-center"
+                                                className={`w-20 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#b8860b] font-black text-gray-800 text-center ${isReadOnly ? 'bg-gray-100' : ''}`}
                                             />
                                         </td>
                                         <td className="px-6 py-6">
@@ -384,24 +390,27 @@ const SettleLineStock = () => {
                                             <input
                                                 type="number"
                                                 min="0"
+                                                readOnly={isReadOnly}
                                                 step="0.001"
                                                 value={item.value}
                                                 onChange={(e) => handleValueChange(idx, e.target.value)}
                                                 placeholder="0.000"
-                                                className="w-28 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#b8860b] font-black text-gray-800 text-right"
+                                                className={`w-28 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#b8860b] font-black text-gray-800 text-right ${isReadOnly ? 'bg-gray-100' : ''}`}
                                             />
                                             <span className="ml-1 text-xs text-gray-400 font-bold">g</span>
                                         </td>
-                                        <td className="px-6 py-6">
-                                            {item.isManual && (
-                                                <button
-                                                    onClick={() => handleRemoveItem(idx)}
-                                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            )}
-                                        </td>
+                                        {!isReadOnly && (
+                                            <td className="px-6 py-6">
+                                                {item.isManual && (
+                                                    <button
+                                                        onClick={() => handleRemoveItem(idx)}
+                                                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -413,21 +422,23 @@ const SettleLineStock = () => {
                                     onClick={() => navigate('/admin/line-stock')}
                                     className="px-8 py-4 rounded-2xl text-gray-400 font-black uppercase tracking-widest hover:text-gray-600 transition-colors"
                                 >
-                                    Cancel
+                                    {isReadOnly ? 'Back to Line Stock' : 'Cancel'}
                                 </button>
-                                <button
-                                    onClick={handleSettle}
-                                    disabled={saving}
-                                    className="flex items-center gap-2 px-10 py-4 bg-[#b8860b] hover:bg-[#8b6508] disabled:bg-gray-200 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg shadow-[#b8860b33]"
-                                >
-                                    {saving ? (
-                                        'Saving...'
-                                    ) : (
-                                        <>
-                                            Complete Settlement <CheckCircle size={18} strokeWidth={3} />
-                                        </>
-                                    )}
-                                </button>
+                                {!isReadOnly && (
+                                    <button
+                                        onClick={handleSettle}
+                                        disabled={saving}
+                                        className="flex items-center gap-2 px-10 py-4 bg-[#b8860b] hover:bg-[#8b6508] disabled:bg-gray-200 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg shadow-[#b8860b33]"
+                                    >
+                                        {saving ? (
+                                            'Saving...'
+                                        ) : (
+                                            <>
+                                                Complete Settlement <CheckCircle size={18} strokeWidth={3} />
+                                            </>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

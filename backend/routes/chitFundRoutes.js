@@ -9,17 +9,20 @@ const {
     searchChitCustomers,
     deleteChitCustomerHistory
 } = require('../controllers/chitFundController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-router.get('/today-rate', protect, getTodayRate);
-router.get('/customers/search', protect, searchChitCustomers);
-router.post('/', protect, createChitFund);
-router.get('/', protect, getChitFunds);
-router.get('/:id', protect, getChitFundById);
-router.put('/:id', protect, updateChitFund);
-router.delete('/:id', protect, deleteChitFund);
-router.delete('/customers/:phone', protect, deleteChitCustomerHistory);
+router.use(protect);
+router.use(blockReadOnly);
+
+router.get('/today-rate', getTodayRate);
+router.get('/customers/search', searchChitCustomers);
+router.post('/', createChitFund);
+router.get('/', getChitFunds);
+router.get('/:id', getChitFundById);
+router.put('/:id', updateChitFund);
+router.delete('/:id', deleteChitFund);
+router.delete('/customers/:phone', deleteChitCustomerHistory);
 
 module.exports = router;

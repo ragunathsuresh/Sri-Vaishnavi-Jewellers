@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 import {
     ChevronRight,
     Search,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 
 const SalesEntry = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams();
@@ -590,8 +592,8 @@ const SalesEntry = () => {
                     <p className="text-gray-400 font-medium">Multi-product transactions with live stock sync</p>
                 </div>
                 <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 divide-x divide-gray-100">
-                    <button onClick={() => setSaleType('B2C')} className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold transition-all ${saleType === 'B2C' ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-100' : 'text-gray-400 hover:text-gray-600'}`}><User size={18} /> B2C</button>
-                    <button onClick={() => setSaleType('B2B')} className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold transition-all ${saleType === 'B2B' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:text-gray-600'}`}><Box size={18} /> B2B</button>
+                    <button onClick={() => !isReadOnly && setSaleType('B2C')} className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold transition-all ${saleType === 'B2C' ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-100' : 'text-gray-400 hover:text-gray-600'} ${isReadOnly ? 'cursor-default' : ''}`}><User size={18} /> B2C</button>
+                    <button onClick={() => !isReadOnly && setSaleType('B2B')} className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold transition-all ${saleType === 'B2B' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:text-gray-600'} ${isReadOnly ? 'cursor-default' : ''}`}><Box size={18} /> B2B</button>
                 </div>
             </div>
 
@@ -606,7 +608,7 @@ const SalesEntry = () => {
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Full Name / Search</label>
                         <div className="relative group">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                            <input type="text" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)} className="w-full bg-gray-50 border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 transition-all font-bold placeholder:text-gray-300" placeholder="Type name..." />
+                            <input type="text" value={customer.name} readOnly={isReadOnly} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 transition-all font-bold placeholder:text-gray-300`} placeholder={isReadOnly ? "" : "Type name..."} />
                             {searchingCustomer && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-yellow-500 animate-spin" size={18} />}
                         </div>
                         {showCustomerDropdown && (
@@ -622,18 +624,18 @@ const SalesEntry = () => {
                     </div>
                     <div className="space-y-3">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Phone Number</label>
-                        <div className="relative"><Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} /><input type="text" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="w-full bg-gray-50 border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 font-bold" placeholder="Ph: +91..." /></div>
+                        <div className="relative"><Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} /><input type="text" value={customer.phone} readOnly={isReadOnly} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 font-bold`} placeholder="Ph: +91..." /></div>
                     </div>
                     <div className="space-y-3">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Date & Time</label>
                         <div className="flex gap-4">
                             <div className="relative flex-1">
                                 <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                                <input type="date" value={customer.date} onChange={(e) => setCustomer({ ...customer, date: e.target.value })} className="w-full bg-gray-50 border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 font-bold text-sm" />
+                                <input type="date" value={customer.date} readOnly={isReadOnly} onChange={(e) => setCustomer({ ...customer, date: e.target.value })} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 font-bold text-sm`} />
                             </div>
                             <div className="relative flex-1">
                                 <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                                <input type="time" value={customer.time} onChange={(e) => setCustomer({ ...customer, time: e.target.value })} className="w-full bg-gray-50 border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 font-bold text-sm" />
+                                <input type="time" value={customer.time} readOnly={isReadOnly} onChange={(e) => setCustomer({ ...customer, time: e.target.value })} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border-2 border-transparent pl-12 pr-4 py-4 rounded-2xl outline-none focus:bg-white focus:border-yellow-200 font-bold text-sm`} />
                             </div>
                         </div>
                     </div>
@@ -644,7 +646,7 @@ const SalesEntry = () => {
             <div className="mb-10">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3"><div className="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-yellow-100"><ArrowUpRight size={20} /></div><h2 className="text-xl font-black text-gray-900 tracking-tight">Issued Products</h2></div>
-                    <button onClick={addIssuedItem} className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl font-black text-sm hover:bg-black transition-all shadow-xl shadow-gray-200"><Plus size={16} /> ADD ANOTHER ITEM</button>
+                    {!isReadOnly && <button onClick={addIssuedItem} className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl font-black text-sm hover:bg-black transition-all shadow-xl shadow-gray-200"><Plus size={16} /> ADD ANOTHER ITEM</button>}
                 </div>
 
                 <div className="space-y-4">
@@ -655,7 +657,7 @@ const SalesEntry = () => {
                             <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-5 items-end">
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">BILL NO</label>
-                                    <input type="text" value={item.billNo} onChange={(e) => handleIssuedChange(item.id, 'billNo', e.target.value)} className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold" />
+                                    <input type="text" value={item.billNo} readOnly={isReadOnly} onChange={(e) => handleIssuedChange(item.id, 'billNo', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`} />
                                 </div>
 
                                 <div className="space-y-2 lg:col-span-1">
@@ -663,27 +665,28 @@ const SalesEntry = () => {
                                     <input
                                         type="text"
                                         value={item.serialNo}
+                                        readOnly={isReadOnly}
                                         onChange={(e) => handleIssuedChange(item.id, 'serialNo', e.target.value)}
-                                        onBlur={() => fetchItemDetails(item.id, item.serialNo)}
+                                        onBlur={() => !isReadOnly && fetchItemDetails(item.id, item.serialNo)}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 e.preventDefault();
-                                                fetchItemDetails(item.id, item.serialNo);
+                                                !isReadOnly && fetchItemDetails(item.id, item.serialNo);
                                             }
                                         }}
-                                        className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold"
-                                        placeholder="Enter item no"
+                                        className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`}
+                                        placeholder={isReadOnly ? "" : "Enter item no"}
                                     />
                                 </div>
 
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">ITEM NAME</label>
-                                    <input type="text" value={item.itemName} onChange={(e) => handleIssuedChange(item.id, 'itemName', e.target.value)} className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold" readOnly={item.fetching} />
+                                    <input type="text" value={item.itemName} readOnly={isReadOnly || item.fetching} onChange={(e) => handleIssuedChange(item.id, 'itemName', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`} />
                                 </div>
 
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">WEIGHT (G)</label>
-                                    <input type="number" value={item.weight} onChange={(e) => handleIssuedChange(item.id, 'weight', e.target.value)} className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold" />
+                                    <input type="number" value={item.weight} readOnly={isReadOnly} onChange={(e) => handleIssuedChange(item.id, 'weight', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`} />
                                 </div>
 
                                 <div className="space-y-2 lg:col-span-1">
@@ -699,25 +702,26 @@ const SalesEntry = () => {
                                     <input
                                         type="number"
                                         value={item.purchaseCount}
+                                        readOnly={isReadOnly}
                                         onChange={(e) => handleIssuedChange(item.id, 'purchaseCount', e.target.value)}
-                                        className={`w-full border-2 px-4 py-3 rounded-xl font-black transition-all ${item.countError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}
+                                        className={`w-full border-2 px-4 py-3 rounded-xl font-black transition-all ${isReadOnly ? 'bg-gray-100 border-transparent text-gray-400' : item.countError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}
                                     />
                                 </div>
 
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-yellow-600 uppercase tracking-widest pl-1 text-[8px]">SRI COST (%)</label>
-                                    <input type="number" value={item.sriCost} onChange={(e) => handleIssuedChange(item.id, 'sriCost', e.target.value)} className="w-full bg-yellow-50/50 border border-yellow-100 px-4 py-3 rounded-xl font-black text-yellow-700" />
+                                    <input type="number" value={item.sriCost} readOnly={isReadOnly} onChange={(e) => handleIssuedChange(item.id, 'sriCost', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100 border-transparent text-gray-400' : 'bg-yellow-50/50 border-yellow-100 text-yellow-700'} px-4 py-3 rounded-xl font-black`} />
                                 </div>
 
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-yellow-600 uppercase tracking-widest pl-1 text-[8px]">SRI BILL (%)</label>
-                                    <input type="number" value={item.sriBill} onChange={(e) => handleIssuedChange(item.id, 'sriBill', e.target.value)} className="w-full bg-yellow-50/50 border border-yellow-100 px-4 py-3 rounded-xl font-black text-yellow-700" />
+                                    <input type="number" value={item.sriBill} readOnly={isReadOnly} onChange={(e) => handleIssuedChange(item.id, 'sriBill', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100 border-transparent text-gray-400' : 'bg-yellow-50/50 border-yellow-100 text-yellow-700'} px-4 py-3 rounded-xl font-black`} />
                                 </div>
 
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-yellow-600 uppercase tracking-widest pl-1">PLUS (%)</label>
                                     <div className="relative">
-                                        <input type="number" value={item.plus} readOnly className="w-full bg-yellow-100/60 border border-yellow-100 pl-3 pr-8 py-3 rounded-xl font-black text-yellow-700 cursor-not-allowed" />
+                                        <input type="number" value={item.plus} readOnly={isReadOnly} className={`w-full ${isReadOnly ? 'bg-gray-100 border-transparent text-gray-400' : 'bg-yellow-100/60 border-yellow-100'} pl-3 pr-8 py-3 rounded-xl font-black text-yellow-700 cursor-not-allowed`} />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-yellow-600">%</span>
                                     </div>
                                 </div>
@@ -729,14 +733,16 @@ const SalesEntry = () => {
                                     </div>
                                 </div>
 
-                                <div className="lg:col-span-2 flex justify-end">
-                                    <button
-                                        onClick={() => removeIssuedItem(item.id)}
-                                        className="w-full lg:w-auto flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white px-6 py-3 rounded-2xl font-black text-[10px] transition-all border border-red-100 uppercase tracking-wider shadow-sm group-hover:shadow-md"
-                                    >
-                                        <Trash2 size={16} /> REMOVE ITEM
-                                    </button>
-                                </div>
+                                {!isReadOnly && (
+                                    <div className="lg:col-span-2 flex justify-end">
+                                        <button
+                                            onClick={() => removeIssuedItem(item.id)}
+                                            className="w-full lg:w-auto flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white px-6 py-3 rounded-2xl font-black text-[10px] transition-all border border-red-100 uppercase tracking-wider shadow-sm group-hover:shadow-md"
+                                        >
+                                            <Trash2 size={16} /> REMOVE ITEM
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -747,23 +753,25 @@ const SalesEntry = () => {
                     )}
                 </div>
 
-                <div className="mt-6 flex justify-end">
-                    <button
-                        onClick={() => handleSubmit(null, 'issue')}
-                        disabled={loading}
-                        className="flex items-center gap-3 bg-gray-900 text-white px-8 py-3.5 rounded-2xl font-black text-xs hover:bg-black transition-all shadow-xl shadow-gray-200 disabled:opacity-50"
-                    >
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                        ADD TO ISSUE DRAFT
-                    </button>
-                </div>
+                {!isReadOnly && (
+                    <div className="mt-6 flex justify-end">
+                        <button
+                            onClick={() => handleSubmit(null, 'issue')}
+                            disabled={loading}
+                            className="flex items-center gap-3 bg-gray-900 text-white px-8 py-3.5 rounded-2xl font-black text-xs hover:bg-black transition-all shadow-xl shadow-gray-200 disabled:opacity-50"
+                        >
+                            {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                            ADD TO ISSUE DRAFT
+                        </button>
+                    </div>
+                )}
             </div >
 
             {/* Receipt Items Section */}
             <div className="mb-20">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3"><div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-100"><ArrowDownLeft size={20} /></div><h2 className="text-xl font-black text-gray-900 tracking-tight">Receipt / Old Gold</h2></div>
-                    <button onClick={addReceiptItem} className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 text-gray-900 rounded-xl font-black text-sm hover:bg-gray-200 transition-all border border-gray-200"><Plus size={16} /> ADD ANOTHER RECEIPT</button>
+                    {!isReadOnly && <button onClick={addReceiptItem} className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 text-gray-900 rounded-xl font-black text-sm hover:bg-gray-200 transition-all border border-gray-200"><Plus size={16} /> ADD ANOTHER RECEIPT</button>}
                 </div>
 
                 <div className="space-y-4">
@@ -774,16 +782,17 @@ const SalesEntry = () => {
                             <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-5 items-end">
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">BILL NO</label>
-                                    <input type="text" value={item.billNo} onChange={(e) => handleReceiptChange(item.id, 'billNo', e.target.value)} className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold" />
+                                    <input type="text" value={item.billNo} readOnly={isReadOnly} onChange={(e) => handleReceiptChange(item.id, 'billNo', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`} />
                                 </div>
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">SERIAL</label>
-                                    <input type="text" value={item.serialNo} onChange={(e) => handleReceiptChange(item.id, 'serialNo', e.target.value)} className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold" />
+                                    <input type="text" value={item.serialNo} readOnly={isReadOnly} onChange={(e) => handleReceiptChange(item.id, 'serialNo', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`} />
                                 </div>
                                 <div className="space-y-2 lg:col-span-4">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">RECEIPT TYPE</label>
                                     <select
                                         value={item.receiptType}
+                                        disabled={isReadOnly}
                                         onChange={(e) => {
                                             const value = e.target.value;
                                             handleReceiptChange(item.id, 'receiptType', value);
@@ -791,7 +800,7 @@ const SalesEntry = () => {
                                                 handleReceiptChange(item.id, 'customReceiptType', '');
                                             }
                                         }}
-                                        className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold outline-none"
+                                        className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold outline-none`}
                                     >
                                         <option value="Kachcha">Kachcha</option>
                                         <option value="Old Gold Exchange">Old Gold Exchange</option>
@@ -806,30 +815,31 @@ const SalesEntry = () => {
                                         <input
                                             type="text"
                                             value={item.customReceiptType || ''}
+                                            readOnly={isReadOnly}
                                             onChange={(e) => handleReceiptChange(item.id, 'customReceiptType', e.target.value)}
-                                            className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold"
-                                            placeholder="Enter custom receipt type"
+                                            className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`}
+                                            placeholder={isReadOnly ? "" : "Enter custom receipt type"}
                                         />
                                     </div>
                                 )}
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">WEIGHT</label>
-                                    <input type="number" value={item.weight} onChange={(e) => handleReceiptChange(item.id, 'weight', e.target.value)} className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold" />
+                                    <input type="number" value={item.weight} readOnly={isReadOnly} onChange={(e) => handleReceiptChange(item.id, 'weight', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`} />
                                 </div>
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">LESS (G)</label>
-                                    <input type="number" value={item.less} onChange={(e) => handleReceiptChange(item.id, 'less', e.target.value)} className="w-full bg-gray-50 border border-transparent px-4 py-3 rounded-xl font-bold" />
+                                    <input type="number" value={item.less} readOnly={isReadOnly} onChange={(e) => handleReceiptChange(item.id, 'less', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-transparent px-4 py-3 rounded-xl font-bold`} />
                                 </div>
 
                                 {/* Row 2 */}
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-green-600 uppercase tracking-widest pl-1">ACT. TOUCH</label>
-                                    <input type="number" value={item.actualTouch} onChange={(e) => handleReceiptChange(item.id, 'actualTouch', e.target.value)} className="w-full bg-green-50/50 border border-green-100 px-4 py-3 rounded-xl font-black text-green-700" />
+                                    <input type="number" value={item.actualTouch} readOnly={isReadOnly} onChange={(e) => handleReceiptChange(item.id, 'actualTouch', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100 border-transparent text-gray-400' : 'bg-green-50/50 border-green-100 text-green-700'} px-4 py-3 rounded-xl font-black`} />
                                 </div>
                                 <div className="space-y-2 lg:col-span-1">
                                     <label className="text-[9px] font-black text-green-600 uppercase tracking-widest pl-1">TAKEN (%)</label>
                                     <div className="relative">
-                                        <input type="number" value={item.takenTouch} onChange={(e) => handleReceiptChange(item.id, 'takenTouch', e.target.value)} className="w-full bg-green-50/50 border border-green-100 pl-3 pr-8 py-3 rounded-xl font-black text-green-700" />
+                                        <input type="number" value={item.takenTouch} readOnly={isReadOnly} onChange={(e) => handleReceiptChange(item.id, 'takenTouch', e.target.value)} className={`w-full ${isReadOnly ? 'bg-gray-100 border-transparent text-gray-400' : 'bg-green-50/50 border-green-100 text-green-700'} pl-3 pr-8 py-3 rounded-xl font-black`} />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-green-600">%</span>
                                     </div>
                                 </div>
@@ -839,14 +849,16 @@ const SalesEntry = () => {
                                 </div>
 
                                 <div className="hidden lg:block lg:col-span-2" />
-                                <div className="lg:col-span-2 flex justify-end">
-                                    <button
-                                        onClick={() => removeReceiptItem(item.id)}
-                                        className="w-full lg:w-auto flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white px-6 py-3 rounded-2xl font-black text-[10px] transition-all border border-red-100 uppercase tracking-wider shadow-sm"
-                                    >
-                                        <Trash2 size={16} /> REMOVE ITEM
-                                    </button>
-                                </div>
+                                {!isReadOnly && (
+                                    <div className="lg:col-span-2 flex justify-end">
+                                        <button
+                                            onClick={() => removeReceiptItem(item.id)}
+                                            className="w-full lg:w-auto flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white px-6 py-3 rounded-2xl font-black text-[10px] transition-all border border-red-100 uppercase tracking-wider shadow-sm"
+                                        >
+                                            <Trash2 size={16} /> REMOVE ITEM
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -857,23 +869,25 @@ const SalesEntry = () => {
                     )}
                 </div>
 
-                <div className="mt-6 flex justify-end">
-                    <button
-                        onClick={() => handleSubmit(null, 'receipt')}
-                        disabled={loading}
-                        className="flex items-center gap-3 bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black text-xs hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 disabled:opacity-50"
-                    >
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                        ADD TO RECEIPT DRAFT
-                    </button>
-                </div>
+                {!isReadOnly && (
+                    <div className="mt-6 flex justify-end">
+                        <button
+                            onClick={() => handleSubmit(null, 'receipt')}
+                            disabled={loading}
+                            className="flex items-center gap-3 bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black text-xs hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 disabled:opacity-50"
+                        >
+                            {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                            ADD TO RECEIPT DRAFT
+                        </button>
+                    </div>
+                )}
             </div >
 
             {/* Bottom Actions */}
             <div className="mt-12 bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-8">
                 <div className="flex gap-4">
-                    <button onClick={() => navigate('/admin/dashboard')} className="px-8 py-4 rounded-2xl font-black text-gray-400 hover:text-gray-900 transition-colors uppercase tracking-widest text-xs">EXIT FORM</button>
-                    <button onClick={clearDraft} className="flex items-center gap-2 px-8 py-4 rounded-2xl font-black text-red-500 hover:bg-red-50 transition-all uppercase tracking-widest text-xs border border-transparent hover:border-red-100"><RotateCcw size={16} /> CLEAR DRAFT</button>
+                    <button onClick={() => navigate('/admin/transactions')} className="px-8 py-4 rounded-2xl font-black text-gray-400 hover:text-gray-900 transition-colors uppercase tracking-widest text-xs">{isReadOnly ? 'BACK TO TRANSACTIONS' : 'EXIT FORM'}</button>
+                    {!isReadOnly && <button onClick={clearDraft} className="flex items-center gap-2 px-8 py-4 rounded-2xl font-black text-red-500 hover:bg-red-50 transition-all uppercase tracking-widest text-xs border border-transparent hover:border-red-100"><RotateCcw size={16} /> CLEAR DRAFT</button>}
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
@@ -883,10 +897,12 @@ const SalesEntry = () => {
                             {committedReceiptItems.length > 0 && <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-black">{committedReceiptItems.length} RECEIPTS READY</span>}
                         </div>
                     )}
-                    <button onClick={handleSubmit} disabled={loading} className="w-full md:w-auto flex items-center justify-center gap-4 bg-yellow-400 px-16 py-5 rounded-[1.5rem] font-black text-gray-900 shadow-2xl shadow-yellow-200 hover:shadow-yellow-400 hover:scale-[1.02] transition-all active:scale-95 disabled:opacity-50">
-                        {loading ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
-                        <span className="uppercase tracking-[0.1em] text-sm">SAVE TRANSACTION PERMANENTLY</span>
-                    </button>
+                    {!isReadOnly && (
+                        <button onClick={handleSubmit} disabled={loading} className="w-full md:w-auto flex items-center justify-center gap-4 bg-yellow-400 px-16 py-5 rounded-[1.5rem] font-black text-gray-900 shadow-2xl shadow-yellow-200 hover:shadow-yellow-400 hover:scale-[1.02] transition-all active:scale-95 disabled:opacity-50">
+                            {loading ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
+                            <span className="uppercase tracking-[0.1em] text-sm">SAVE TRANSACTION PERMANENTLY</span>
+                        </button>
+                    )}
                 </div>
             </div >
         </div >

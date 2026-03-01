@@ -11,14 +11,20 @@ import {
     ExternalLink,
     Box,
     Edit2,
-    Trash2
+    Trash2,
+    Loader2,
+    FileText
 } from 'lucide-react';
 
+import { useDevice } from '../context/DeviceContext';
+
 const StockManagement = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const navigate = useNavigate();
     const [stocks, setStocks] = useState([]);
     const [stats, setStats] = useState({ totalJewels: '0 Types', totalCount: 0, totalWeight: '0.00' });
     const [loading, setLoading] = useState(true);
+    const [exportingPdf, setExportingPdf] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [startSerial, setStartSerial] = useState('');
     const [endSerial, setEndSerial] = useState('');
@@ -70,6 +76,32 @@ const StockManagement = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    const handleDownloadPdf = async () => {
+        try {
+            setExportingPdf(true);
+            const response = await api.get('/reports/stock/pdf', {
+                params: {
+                    jewelleryType: filterType,
+                    saleType: originFilter
+                },
+                responseType: 'blob'
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `stock_report_${new Date().toISOString().split('T')[0]}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            alert('Failed to download PDF report');
+        } finally {
+            setExportingPdf(false);
+        }
     };
 
     const handleImportClick = () => {
@@ -197,7 +229,7 @@ const StockManagement = () => {
                             <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Jewel Name</th>
                             <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Count</th>
                             <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Weight</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                            {!isReadOnly && <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -264,24 +296,26 @@ const StockManagement = () => {
                                     <td className="px-6 py-5 text-center">
                                         <span className="text-base font-black text-gray-900 leading-none">{item.netWeight} <span className="text-[10px] text-gray-400 uppercase ml-0.5">gm</span></span>
                                     </td>
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => navigate(`/admin/stock/edit/${item._id}`)}
-                                                className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-yellow-50 hover:text-yellow-600 transition-all border border-gray-100 group-hover:bg-white"
-                                                title="Edit Item"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(item._id)}
-                                                className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all border border-gray-100 group-hover:bg-white"
-                                                title="Delete Item"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
+                                    {!isReadOnly && (
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => navigate(`/admin/stock/edit/${item._id}`)}
+                                                    className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-yellow-50 hover:text-yellow-600 transition-all border border-gray-100 group-hover:bg-white"
+                                                    title="Edit Item"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(item._id)}
+                                                    className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all border border-gray-100 group-hover:bg-white"
+                                                    title="Delete Item"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ))
                         )}
@@ -322,32 +356,34 @@ const StockManagement = () => {
             </nav>
 
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 mb-1">Stock Management</h1>
-                    <p className="text-gray-400 font-medium">Manage your jewelry inventory, track stock levels, and valuations.</p>
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 mb-1">Stock Management</h1>
+                    <p className="text-gray-400 text-sm font-medium">Manage your jewelry inventory, track stock levels, and valuations.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => handleAction('Import CSV')}
-                        className="flex items-center gap-2 bg-white border border-gray-100 px-5 py-2.5 rounded-xl font-bold text-gray-600 shadow-sm hover:shadow-md transition-all active:scale-95"
-                    >
-                        <Download size={18} />
-                        Import CSV
-                    </button>
-                    <button
-                        onClick={() => navigate('/admin/stock/new')}
-                        className="flex items-center gap-2 bg-yellow-400 px-5 py-2.5 rounded-xl font-black text-gray-900 shadow-md hover:shadow-lg transition-all active:scale-95"
-                    >
-                        <Plus size={18} />
-                        Add New Stock
-                    </button>
-                </div>
+                {!isReadOnly && (
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => handleAction('Import CSV')}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white border border-gray-100 px-5 py-2.5 rounded-xl font-bold text-gray-600 shadow-sm hover:shadow-md transition-all active:scale-95"
+                        >
+                            <Plus size={18} />
+                            Import
+                        </button>
+                        <button
+                            onClick={() => navigate('/admin/stock/new')}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-yellow-400 px-5 py-2.5 rounded-xl font-black text-gray-900 shadow-md hover:shadow-lg transition-all active:scale-95"
+                        >
+                            <Plus size={18} />
+                            Add
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Search and Filters */}
-            <div className="flex items-center gap-4 mb-8">
-                <div className="flex-1 relative group">
+            <div className="flex flex-wrap items-center gap-3 md:gap-4 mb-8">
+                <div className="w-full md:flex-1 relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-yellow-500 transition-colors" size={20} />
                     <input
                         type="text"
@@ -357,12 +393,12 @@ const StockManagement = () => {
                         className="w-full bg-white border border-gray-100 pl-12 pr-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all text-sm font-medium"
                     />
                 </div>
-                <div className="relative">
+                <div className="flex-1 md:flex-none relative">
                     <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <select
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value)}
-                        className="bg-white border border-gray-100 pl-12 pr-8 py-3.5 rounded-xl font-bold text-gray-600 outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
+                        className="w-full bg-white border border-gray-100 pl-12 pr-8 py-3.5 rounded-xl font-bold text-xs md:text-sm text-gray-600 outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                     >
                         <option value="All">All Types</option>
                         <option value="Gold">Gold</option>
@@ -371,12 +407,12 @@ const StockManagement = () => {
                         <option value="Diamond">Diamond</option>
                     </select>
                 </div>
-                <div className="relative">
+                <div className="flex-1 md:flex-none relative">
                     <Box className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <select
                         value={originFilter}
                         onChange={(e) => setOriginFilter(e.target.value)}
-                        className="bg-white border border-gray-100 pl-12 pr-8 py-3.5 rounded-xl font-bold text-gray-600 outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
+                        className="w-full bg-white border border-gray-100 pl-12 pr-8 py-3.5 rounded-xl font-bold text-xs md:text-sm text-gray-600 outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                     >
                         <option value="All">All Origins</option>
                         <option value="General">General Stock</option>
@@ -385,7 +421,7 @@ const StockManagement = () => {
                     </select>
                 </div>
                 {/* Serial Range Filter */}
-                <div className="flex items-center gap-2 bg-white border border-gray-100 px-4 py-3 rounded-xl shadow-sm">
+                <div className="w-full md:w-auto flex items-center gap-2 bg-white border border-gray-100 px-4 py-3 rounded-xl shadow-sm">
                     <Filter className="text-gray-400" size={16} />
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-1">Range:</span>
                     <input
@@ -406,10 +442,18 @@ const StockManagement = () => {
                 </div>
                 <button
                     onClick={() => handleExport()}
-                    className="flex items-center gap-2 bg-white border border-gray-100 px-6 py-3.5 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                    className="w-full md:w-auto flex items-center justify-center gap-2 bg-white border border-gray-100 px-6 py-3.5 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
                 >
                     <ExternalLink size={18} />
-                    Export CSV
+                    CSV
+                </button>
+                <button
+                    onClick={() => handleDownloadPdf()}
+                    disabled={exportingPdf}
+                    className="w-full md:w-auto flex items-center justify-center gap-2 bg-gray-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-black transition-all active:scale-95 shadow-sm disabled:opacity-50"
+                >
+                    {exportingPdf ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />}
+                    {exportingPdf ? 'Exporting...' : 'PDF Report'}
                 </button>
             </div>
 

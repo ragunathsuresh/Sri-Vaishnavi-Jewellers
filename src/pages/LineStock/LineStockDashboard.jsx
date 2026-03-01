@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { lineStockService } from '../../services/lineStockService';
 import api from '../../axiosConfig';
 import { Plus, Search, Filter, Calendar, ChevronRight, AlertCircle, CheckCircle, Clock, Download, UserPlus, X, Loader2 } from 'lucide-react';
+import { useDevice } from '../../context/DeviceContext';
 
 const LineStockDashboard = () => {
+    const { isReadOnly } = useDevice();
     const navigate = useNavigate();
     const [lineStocks, setLineStocks] = useState([]);
     const [summary, setSummary] = useState({ active: 0, overdue: 0, settled: 0, today: 0 });
@@ -203,20 +205,24 @@ const LineStockDashboard = () => {
                     <p className="text-gray-500">Manage and track jewelry inventory issued to sales personnel.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setShowAddUser(true)}
-                        className="flex items-center gap-2 border border-[#b8860b] text-[#b8860b] hover:bg-amber-50 px-6 py-3 rounded-xl transition-all font-bold"
-                    >
-                        <UserPlus size={20} />
-                        <span>Add Person</span>
-                    </button>
-                    <button
-                        onClick={() => navigate('/admin/line-stock/create')}
-                        className="flex items-center gap-2 bg-[#b8860b] hover:bg-[#8b6508] text-white px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#b8860b33]"
-                    >
-                        <Plus size={20} />
-                        <span>Issue Stock</span>
-                    </button>
+                    {!isReadOnly && (
+                        <>
+                            <button
+                                onClick={() => setShowAddUser(true)}
+                                className="flex items-center gap-2 border border-[#b8860b] text-[#b8860b] hover:bg-amber-50 px-6 py-3 rounded-xl transition-all font-bold"
+                            >
+                                <UserPlus size={20} />
+                                <span>Add Person</span>
+                            </button>
+                            <button
+                                onClick={() => navigate('/admin/line-stock/create')}
+                                className="flex items-center gap-2 bg-[#b8860b] hover:bg-[#8b6508] text-white px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#b8860b33]"
+                            >
+                                <Plus size={20} />
+                                <span>Issue Stock</span>
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -265,7 +271,7 @@ const LineStockDashboard = () => {
                         {exporting ? 'Exporting...' : 'Export CSV'}
                     </button>
                     <select
-                        className="py-3 px-4 rounded-xl border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]"
+                        className="py-3 px-4 rounded-xl border border-gray-100 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]"
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                     >
@@ -291,7 +297,7 @@ const LineStockDashboard = () => {
                             <th className="px-6 py-4">Status</th>
                             <th className="px-6 py-4 text-center">Returned (g)</th>
                             <th className="px-6 py-4 text-center">Balance (g)</th>
-                            <th className="px-6 py-4 text-right">Action</th>
+                            <th className="px-6 py-4 text-right">{isReadOnly ? 'Details' : 'Action'}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -346,7 +352,7 @@ const LineStockDashboard = () => {
                                         onClick={() => navigate(`/admin/line-stock/settle/${ls._id}`)}
                                         className="inline-flex items-center gap-1 text-[#b8860b] font-bold hover:underline group-hover:translate-x-1 transition-transform"
                                     >
-                                        Settle <ChevronRight size={16} />
+                                        {isReadOnly ? 'View' : 'Settle'} <ChevronRight size={16} />
                                     </button>
                                 </td>
                             </tr>

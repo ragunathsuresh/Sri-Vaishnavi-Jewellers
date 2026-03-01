@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { ChevronRight, ArrowLeft, Save, X } from 'lucide-react';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 
 const AddNewStock = () => {
+    const { isReadOnly } = useDevice();
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams();
@@ -332,7 +334,8 @@ const AddNewStock = () => {
                                         onChange={handleChange}
                                         onBlur={(e) => handleSearchItem(e.target.value)}
                                         placeholder="SV-00123"
-                                        className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 pr-12"
+                                        readOnly={isReadOnly}
+                                        className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 pr-12`}
                                         required
                                     />
                                     {searchLoading && (
@@ -349,8 +352,9 @@ const AddNewStock = () => {
                                     name="itemName"
                                     value={formData.itemName}
                                     onChange={handleChange}
-                                    placeholder="Temple Necklace"
-                                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700"
+                                    readOnly={isReadOnly}
+                                    placeholder={isReadOnly ? "" : "Temple Necklace"}
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700`}
                                     required
                                 />
                             </div>
@@ -360,7 +364,8 @@ const AddNewStock = () => {
                                     name="jewelleryType"
                                     value={formData.jewelleryType}
                                     onChange={handleChange}
-                                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 appearance-none pointer-events-auto"
+                                    disabled={isReadOnly}
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 appearance-none pointer-events-auto`}
                                     required
                                 >
                                     <option value="">Select Type</option>
@@ -402,14 +407,15 @@ const AddNewStock = () => {
                                         name="category"
                                         value={formData.category}
                                         onChange={handleChange}
-                                        className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 appearance-none"
+                                        disabled={isReadOnly}
+                                        className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 appearance-none`}
                                         required
                                     >
                                         <option value="">Select Category</option>
                                         {categories.map(cat => (
                                             <option key={cat} value={cat}>{cat}</option>
                                         ))}
-                                        <option value="ADD_NEW" className="text-yellow-600 font-bold">+ Add New Category</option>
+                                        {!isReadOnly && <option value="ADD_NEW" className="text-yellow-600 font-bold">+ Add New Category</option>}
                                     </select>
                                 )}
                             </div>
@@ -420,8 +426,9 @@ const AddNewStock = () => {
                                     name="designName"
                                     value={formData.designName}
                                     onChange={handleChange}
-                                    placeholder="Antique Flora"
-                                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700"
+                                    readOnly={isReadOnly}
+                                    placeholder={isReadOnly ? "" : "Antique Flora"}
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700`}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -431,8 +438,9 @@ const AddNewStock = () => {
                                     name="supplierName"
                                     value={formData.supplierName}
                                     onChange={handleChange}
-                                    placeholder="Rajesh Exports"
-                                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700"
+                                    readOnly={isReadOnly}
+                                    placeholder={isReadOnly ? "" : "Rajesh Exports"}
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700`}
                                 />
                             </div>
                         </div>
@@ -454,8 +462,9 @@ const AddNewStock = () => {
                                     name="grossWeight"
                                     value={formData.grossWeight}
                                     onChange={handleChange}
+                                    readOnly={isReadOnly}
                                     placeholder="0.000"
-                                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700"
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700`}
                                     required
                                 />
                             </div>
@@ -467,8 +476,9 @@ const AddNewStock = () => {
                                     name="netWeight"
                                     value={formData.netWeight}
                                     onChange={handleChange}
+                                    readOnly={isReadOnly}
                                     placeholder="0.000"
-                                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700"
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700`}
                                     required
                                 />
                             </div>
@@ -478,7 +488,8 @@ const AddNewStock = () => {
                                     name="purity"
                                     value={formData.purity}
                                     onChange={handleChange}
-                                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 appearance-none"
+                                    disabled={isReadOnly}
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700 appearance-none`}
                                 >
                                     <option value="22K (916)">22K (916)</option>
                                     <option value="24K (999)">24K (999)</option>
@@ -501,8 +512,9 @@ const AddNewStock = () => {
                                     name="newQuantity"
                                     value={formData.newQuantity}
                                     onChange={handleChange}
+                                    readOnly={isReadOnly}
                                     placeholder="1"
-                                    className="w-full bg-emerald-50 border border-emerald-100 px-4 py-3.5 rounded-xl outline-none focus:ring-4 focus:ring-emerald-50 transition-all font-bold text-emerald-700"
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100 border-gray-100 text-gray-400' : 'bg-emerald-50 border-emerald-100 text-emerald-700'} px-4 py-3.5 rounded-xl outline-none focus:ring-4 focus:ring-emerald-50 transition-all font-bold`}
                                     required
                                 />
                             </div>
@@ -517,20 +529,22 @@ const AddNewStock = () => {
                         onClick={() => navigate('/admin/stock')}
                         className="px-8 py-3.5 rounded-xl font-bold text-gray-500 hover:bg-gray-50 transition-all active:scale-95"
                     >
-                        Cancel
+                        {isReadOnly ? 'Back to Stock Management' : 'Cancel'}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="bg-yellow-400 px-10 py-3.5 rounded-xl font-black text-gray-900 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
-                    >
-                        {loading ? 'Saving...' : (
-                            <>
-                                <Save size={20} />
-                                Save Stock Item
-                            </>
-                        )}
-                    </button>
+                    {!isReadOnly && (
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="bg-yellow-400 px-10 py-3.5 rounded-xl font-black text-gray-900 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
+                        >
+                            {loading ? 'Saving...' : (
+                                <>
+                                    <Save size={20} />
+                                    Save Stock Item
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </form>
         </div>

@@ -5,6 +5,8 @@ const PDFDocument = require('pdfkit');
 const billingService = require('../services/billingService');
 const businessService = require('../services/businessService');
 const Expense = require('../models/Expense');
+const Sale = require('../models/Sale');
+const Stock = require('../models/Stock');
 
 const SHARED_DIR = path.join(__dirname, '..', 'temp', 'shared-reports');
 const SHARED_TTL_MS = 30 * 60 * 1000;
@@ -732,10 +734,123 @@ const serveSharedMonthlyPdf = async (req, res) => {
     }
 };
 
+const downloadStockPdf = async (req, res) => {
+    try {
+        const { jewelleryType, saleType } = req.query;
+        let filters = {};
+        if (jewelleryType && jewelleryType !== 'All') filters.jewelleryType = jewelleryType;
+        if (saleType && saleType !== 'All') filters.saleType = saleType;
+
+        const stocks = await Stock.find(filters).sort({ serialNo: 1 });
+        const generatedAt = new Date();
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="stock-report-${generatedAt.toISOString().slice(0, 10)}.pdf"`);
+
+        const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+        doc.pipe(res);
+        attachWatermark(doc);
+        const margins = { top: 40, left: 40, right: 40, bottom: 40 };
+        const renderer = createTableRenderer(doc, margins);
+
+        doc.font(getFont(true)).fontSize(18).fillColor('#111827').text('SRI VAISHNAVI JEWELLERS', margins.left, margins.top, {
+            width: renderer.pageWidth(),
+            align: 'center'
+        });
+        doc.font(getFont(true)).fontSize(11).fillColor('#111827').text(`Stock Management Report`, margins.left, margins.top + 22, {
+            width: renderer.pageWidth(),
+            align: 'center'
+        });
+        doc.font(getFont(false)).fontSize(8).fillColor('#64748B').text(`Generated on: ${generatedAt.toLocaleString('en-IN')}`, margins.left, margins.top + 34, {
+            width: renderer.pageWidth(),
+            align: 'center'
+        });
+
+        renderer.setY(margins.top + 55);
+        renderer.drawSectionTitle('INVENTORY DETAILS');
+        renderer.drawTable({
+            headers: ['Serial No', 'Item Name', 'Type', 'Category', 'Purity', 'Count', 'Weight'],
+            rows: stocks.map(s => [
+                s.serialNo || '-', s.itemName || '-', s.jewelleryType || '-', s.category || '-', s.purity || '-',
+                s.currentCount ?? s.count, `${num3(s.netWeight)}g`
+            ]),
+            widths: [80, 150, 80, 80, 80, 80, 80],
+            aligns: ['left', 'left', 'left', 'left', 'center', 'center', 'right']
+        });
+
+        doc.end();
+    } catch (error) {
+        console.error('Stock PDF Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const downloadTransactionHistoryPdf = async (req, res) => {
+    try {
+        const { saleType, startDate, endDate } = req.query;
+        let filter = {};
+        if (saleType && saleType !== 'All') filter.saleType = saleType;
+        if (startDate || endDate) {
+            filter.createdAt = {};
+            if (startDate) filter.createdAt.$gte = new Date(startDate);
+            if (endDate) filter.createdAt.$lte = new Date(endDate);
+        }
+
+        const sales = await Sale.find(filter).sort({ createdAt: -1 });
+        const generatedAt = new Date();
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="transaction-history-${generatedAt.toISOString().slice(0, 10)}.pdf"`);
+
+        const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+        doc.pipe(res);
+        attachWatermark(doc);
+        const margins = { top: 30, left: 30, right: 30, bottom: 30 };
+        const renderer = createTableRenderer(doc, margins);
+
+        doc.font(getFont(true)).fontSize(18).fillColor('#111827').text('SRI VAISHNAVI JEWELLERS', margins.left, margins.top, {
+            width: renderer.pageWidth(),
+            align: 'center'
+        });
+        doc.font(getFont(true)).fontSize(11).fillColor('#111827').text(`Transaction History Report`, margins.left, margins.top + 22, {
+            width: renderer.pageWidth(),
+            align: 'center'
+        });
+        doc.font(getFont(false)).fontSize(8).fillColor('#64748B').text(`Generated on: ${generatedAt.toLocaleString('en-IN')}`, margins.left, margins.top + 34, {
+            width: renderer.pageWidth(),
+            align: 'center'
+        });
+
+        renderer.setY(margins.top + 55);
+        renderer.drawSectionTitle('SALES & RECEIPTS');
+        renderer.drawTable({
+            headers: ['Date', 'Customer', 'Phone', 'Sale', 'Item', 'Weight', 'Sri Bill'],
+            rows: sales.flatMap(s => (s.issuedItems || []).map((item, idx) => [
+                idx === 0 ? s.date : '',
+                idx === 0 ? s.customerDetails?.name : '',
+                idx === 0 ? s.customerDetails?.phone : '',
+                s.saleType || '-',
+                item.itemName || '-',
+                `${num3(item.netWeight || item.weight)}g`,
+                `₹${(item.sriBill || 0).toLocaleString('en-IN')}`
+            ])),
+            widths: [65, 120, 90, 60, 140, 90, 120],
+            aligns: ['left', 'left', 'left', 'left', 'left', 'right', 'right']
+        });
+
+        doc.end();
+    } catch (error) {
+        console.error('Transaction PDF Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     downloadMonthlyPdf,
     createMonthlyPdfShareLink,
     serveSharedMonthlyPdf,
     downloadDailyPdf,
-    createDailyPdfShareLink
+    createDailyPdfShareLink,
+    downloadStockPdf,
+    downloadTransactionHistoryPdf
 };

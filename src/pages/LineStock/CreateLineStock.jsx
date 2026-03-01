@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { lineStockService, stockService } from '../../services/lineStockService';
 import api from '../../axiosConfig';
 import { Search, User, Phone, Calendar, Package, Trash2, Plus, ArrowLeft, ArrowRight } from 'lucide-react';
+import { useDevice } from '../../context/DeviceContext';
 
 const CreateLineStock = () => {
+    const { isReadOnly } = useDevice();
     const navigate = useNavigate();
     const [personDetails, setPersonDetails] = useState({
         personName: '',
@@ -229,12 +231,13 @@ const CreateLineStock = () => {
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                                     <input
                                         type="text"
-                                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all"
-                                        placeholder="Enter full name"
+                                        readOnly={isReadOnly}
+                                        className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                        placeholder={isReadOnly ? "" : "Enter full name"}
                                         value={personDetails.personName}
                                         onChange={(e) => handlePersonNameChange(e.target.value)}
                                         onFocus={() => {
-                                            if (personSuggestions.length > 0) setShowPersonSuggestions(true);
+                                            if (!isReadOnly && personSuggestions.length > 0) setShowPersonSuggestions(true);
                                         }}
                                         onBlur={() => setTimeout(() => setShowPersonSuggestions(false), 120)}
                                     />
@@ -271,8 +274,9 @@ const CreateLineStock = () => {
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                                     <input
                                         type="tel"
-                                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all"
-                                        placeholder="+91 00000 00000"
+                                        readOnly={isReadOnly}
+                                        className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                        placeholder={isReadOnly ? "" : "+91 00000 00000"}
                                         value={personDetails.phoneNumber}
                                         onChange={(e) => setPersonDetails({ ...personDetails, phoneNumber: e.target.value })}
                                     />
@@ -311,7 +315,8 @@ const CreateLineStock = () => {
                                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                                     <input
                                         type="date"
-                                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all"
+                                        readOnly={isReadOnly}
+                                        className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all ${isReadOnly ? 'bg-gray-100' : ''}`}
                                         value={personDetails.issuedDate}
                                         onChange={(e) => setPersonDetails({ ...personDetails, issuedDate: e.target.value })}
                                     />
@@ -323,7 +328,8 @@ const CreateLineStock = () => {
                                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                                     <input
                                         type="date"
-                                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all"
+                                        readOnly={isReadOnly}
+                                        className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-[#b8860b33] focus:outline-none transition-all ${isReadOnly ? 'bg-gray-100' : ''}`}
                                         value={personDetails.expectedReturnDate}
                                         onChange={(e) => setPersonDetails({ ...personDetails, expectedReturnDate: e.target.value })}
                                     />
@@ -341,38 +347,40 @@ const CreateLineStock = () => {
                                 </div>
                                 <h2 className="text-xl font-bold text-gray-800">Add Products</h2>
                             </div>
-                            <div className="relative w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search products..."
-                                    className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                                {searchTerm && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-gray-50">
-                                        {filteredStock.length === 0 ? (
-                                            <div className="p-4 text-center text-gray-400 text-sm">No items found</div>
-                                        ) : filteredStock.map(p => (
-                                            <div
-                                                key={p._id}
-                                                onClick={() => { handleAddItem(p._id); setSearchTerm(''); }}
-                                                className="p-4 flex justify-between items-center hover:bg-[#fdfbf7] cursor-pointer group transition-colors"
-                                            >
-                                                <div>
-                                                    <div className="font-bold text-gray-800 group-hover:text-[#b8860b] transition-colors">{p.itemName}</div>
-                                                    <div className="text-xs text-gray-400">{p.serialNo} • {p.category}</div>
+                            {!isReadOnly && (
+                                <div className="relative w-64">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search products..."
+                                        className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    {searchTerm && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-gray-50">
+                                            {filteredStock.length === 0 ? (
+                                                <div className="p-4 text-center text-gray-400 text-sm">No items found</div>
+                                            ) : filteredStock.map(p => (
+                                                <div
+                                                    key={p._id}
+                                                    onClick={() => { handleAddItem(p._id); setSearchTerm(''); }}
+                                                    className="p-4 flex justify-between items-center hover:bg-[#fdfbf7] cursor-pointer group transition-colors"
+                                                >
+                                                    <div>
+                                                        <div className="font-bold text-gray-800 group-hover:text-[#b8860b] transition-colors">{p.itemName}</div>
+                                                        <div className="text-xs text-gray-400">{p.serialNo} • {p.category}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-bold text-gray-800">{p.currentCount} units</div>
+                                                        <div className="text-xs text-[#b8860b]">Available</div>
+                                                    </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="text-sm font-bold text-gray-800">{p.currentCount} units</div>
-                                                    <div className="text-xs text-[#b8860b]">Available</div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Selected Items Table */}
@@ -411,18 +419,21 @@ const CreateLineStock = () => {
                                                 <input
                                                     type="number"
                                                     min="1"
+                                                    readOnly={isReadOnly}
                                                     value={item.issuedQty}
                                                     onChange={(e) => handleUpdateQty(idx, e.target.value)}
-                                                    className="w-20 px-3 py-1.5 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] font-bold text-gray-800"
+                                                    className={`w-20 px-3 py-1.5 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] font-bold text-gray-800 ${isReadOnly ? 'bg-gray-100' : ''}`}
                                                 />
                                             </td>
                                             <td className="py-4 text-right pr-4">
-                                                <button
-                                                    onClick={() => handleRemoveItem(idx)}
-                                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                                {!isReadOnly && (
+                                                    <button
+                                                        onClick={() => handleRemoveItem(idx)}
+                                                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -451,30 +462,33 @@ const CreateLineStock = () => {
                                     type="number"
                                     min="0"
                                     step="0.001"
+                                    readOnly={isReadOnly}
                                     value={personDetails.totalGram}
                                     onChange={(e) => setPersonDetails({ ...personDetails, totalGram: e.target.value })}
                                     placeholder="0.000"
-                                    className="w-full px-3 py-2 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] font-bold text-gray-800"
+                                    className={`w-full px-3 py-2 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] font-bold text-gray-800 ${isReadOnly ? 'bg-gray-100' : ''}`}
                                 />
                             </div>
                         </div>
                         <div className="pt-6 border-t border-dashed border-gray-100 space-y-4">
-                            <button
-                                onClick={handleSubmit}
-                                disabled={loading}
-                                className="w-full flex items-center justify-center gap-3 bg-[#b8860b] hover:bg-[#8b6508] disabled:bg-gray-200 text-white py-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-[#b8860b33]"
-                            >
-                                {loading ? 'Processing...' : (
-                                    <>
-                                        Submit Line Stock <Plus size={18} strokeWidth={3} />
-                                    </>
-                                )}
-                            </button>
+                            {!isReadOnly && (
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={loading}
+                                    className="w-full flex items-center justify-center gap-3 bg-[#b8860b] hover:bg-[#8b6508] disabled:bg-gray-200 text-white py-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-[#b8860b33]"
+                                >
+                                    {loading ? 'Processing...' : (
+                                        <>
+                                            Submit Line Stock <Plus size={18} strokeWidth={3} />
+                                        </>
+                                    )}
+                                </button>
+                            )}
                             <button
                                 onClick={() => navigate('/admin/line-stock')}
                                 className="w-full text-center text-gray-400 font-bold text-sm uppercase tracking-widest hover:text-gray-600 transition-colors"
                             >
-                                Cancel
+                                {isReadOnly ? 'Back to Line Stock' : 'Cancel'}
                             </button>
                         </div>
                     </div>

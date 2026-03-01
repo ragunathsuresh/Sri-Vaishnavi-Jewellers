@@ -11,15 +11,18 @@ const {
     getStockHistoryBySerialNo,
     deleteStock
 } = require('../controllers/stockController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
-router.get('/', protect, getStocks);
-router.get('/search', protect, searchStock);
-router.post('/', protect, addStock);
-router.get('/serial/:serialNo', protect, getStockBySerialNo);
-router.get('/history/:serialNo', protect, getStockHistoryBySerialNo);
-router.get('/:id', protect, getStockById);
-router.put('/:id', protect, updateStock);
-router.delete('/:id', protect, deleteStock);
+router.use(protect);
+router.use(blockReadOnly);
+
+router.get('/', getStocks);
+router.get('/search', searchStock);
+router.post('/', addStock);
+router.get('/serial/:serialNo', getStockBySerialNo);
+router.get('/history/:serialNo', getStockHistoryBySerialNo);
+router.get('/:id', getStockById);
+router.put('/:id', updateStock);
+router.delete('/:id', deleteStock);
 
 module.exports = router;

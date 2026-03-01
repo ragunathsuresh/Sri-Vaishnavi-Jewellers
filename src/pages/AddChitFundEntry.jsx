@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 
 const getTodayDate = () => new Date().toISOString().split('T')[0];
 const getCurrentTime = () =>
     new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
 const AddChitFundEntry = () => {
+    const { isReadOnly } = useDevice();
     const navigate = useNavigate();
     const { id } = useParams();
     const isEdit = Boolean(id);
@@ -231,10 +233,11 @@ const AddChitFundEntry = () => {
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Customer Name *</label>
                             <input
                                 value={form.customerName}
+                                readOnly={isReadOnly}
                                 onChange={(e) => handleCustomerNameChange(e.target.value)}
-                                list="chitCustomerList"
-                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none"
-                                placeholder="Enter customer name"
+                                list={isReadOnly ? "" : "chitCustomerList"}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "Enter customer name"}
                             />
                             <datalist id="chitCustomerList">
                                 {customerSuggestions.map((item) => (
@@ -253,9 +256,10 @@ const AddChitFundEntry = () => {
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phone Number *</label>
                             <input
                                 value={form.phoneNumber}
+                                readOnly={isReadOnly}
                                 onChange={(e) => onChange('phoneNumber', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none"
-                                placeholder="10-digit mobile number"
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "10-digit mobile number"}
                             />
                             {errors.phoneNumber && <p className="mt-1 text-sm text-red-600">{errors.phoneNumber}</p>}
                         </div>
@@ -264,9 +268,10 @@ const AddChitFundEntry = () => {
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Date *</label>
                             <input
                                 type="date"
+                                readOnly={isReadOnly}
                                 value={form.date}
                                 onChange={(e) => onChange('date', e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none"
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
                             />
                             {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
                         </div>
@@ -275,8 +280,9 @@ const AddChitFundEntry = () => {
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Time</label>
                             <input
                                 value={form.time}
+                                readOnly={isReadOnly}
                                 onChange={(e) => onChange('time', e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none"
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
                             />
                         </div>
 
@@ -286,10 +292,11 @@ const AddChitFundEntry = () => {
                                 type="number"
                                 min="0"
                                 step="0.01"
+                                readOnly={isReadOnly}
                                 value={form.amount}
                                 onChange={(e) => onChange('amount', e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none"
-                                placeholder="Enter amount"
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "Enter amount"}
                             />
                             {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
                         </div>
@@ -300,9 +307,10 @@ const AddChitFundEntry = () => {
                                 type="number"
                                 min="0"
                                 step="0.01"
+                                readOnly={isReadOnly}
                                 value={loadingRate ? '' : form.goldRateToday}
                                 onChange={(e) => onChange('goldRateToday', e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none"
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
                             />
                             {errors.goldRateToday && <p className="mt-1 text-sm text-red-600">{errors.goldRateToday}</p>}
                         </div>
@@ -313,9 +321,10 @@ const AddChitFundEntry = () => {
                                 type="number"
                                 min="0"
                                 step="0.001"
+                                readOnly={isReadOnly}
                                 value={form.gramsPurchased}
                                 onChange={(e) => onChange('gramsPurchased', e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none"
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
                                 placeholder="0.000"
                             />
                         </div>
@@ -326,16 +335,18 @@ const AddChitFundEntry = () => {
                                 onClick={() => navigate('/admin/chit')}
                                 className="px-5 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold"
                             >
-                                Cancel
+                                {isReadOnly ? 'Back to Chit Funds' : 'Cancel'}
                             </button>
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold disabled:opacity-60"
-                            >
-                                <Save size={16} />
-                                {submitting ? 'Saving...' : 'Save Entry'}
-                            </button>
+                            {!isReadOnly && (
+                                <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold disabled:opacity-60"
+                                >
+                                    <Save size={16} />
+                                    {submitting ? 'Saving...' : 'Save Entry'}
+                                </button>
+                            )}
                         </div>
                     </form>
                 </div>

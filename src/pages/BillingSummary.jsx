@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Clock, Download, Loader2, Save, Share2, Trash2, Plus } from 'lucide-react';
 import api from '../axiosConfig';
 
+import { useDevice } from '../context/DeviceContext';
+
 const number3 = (value) => Number(value || 0).toFixed(3);
 const BillingSummary = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
     const [now, setNow] = useState(new Date());
     const [loading, setLoading] = useState(true);
@@ -337,15 +340,18 @@ const BillingSummary = () => {
                             inputMode="decimal"
                             value={cashInput}
                             onChange={(e) => setCashInput(e.target.value.replace(/[^0-9.]/g, ''))}
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]"
+                            readOnly={isReadOnly}
+                            className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] ${isReadOnly ? 'bg-gray-50' : ''}`}
                         />
-                        <button
-                            onClick={saveCashBalance}
-                            disabled={savingCash}
-                            className="px-3 py-2 rounded-lg bg-[#b8860b] text-white font-bold disabled:opacity-60"
-                        >
-                            <Save size={15} />
-                        </button>
+                        {!isReadOnly && (
+                            <button
+                                onClick={saveCashBalance}
+                                disabled={savingCash}
+                                className="px-3 py-2 rounded-lg bg-[#b8860b] text-white font-bold disabled:opacity-60"
+                            >
+                                <Save size={15} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -565,41 +571,43 @@ const BillingSummary = () => {
                             <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">7. Other Section</h2>
                         </div>
 
-                        <form onSubmit={handleAddOther} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                            <input
-                                type="text" placeholder="Name" required
-                                className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={newOther.name} onChange={e => setNewOther({ ...newOther, name: e.target.value })}
-                            />
-                            <input
-                                type="text" placeholder="Description"
-                                className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={newOther.description} onChange={e => setNewOther({ ...newOther, description: e.target.value })}
-                            />
-                            <select
-                                className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={newOther.type} onChange={e => setNewOther({ ...newOther, type: e.target.value })}
-                            >
-                                <option value="Addition">Addition (+)</option>
-                                <option value="Subtraction">Subtraction (-)</option>
-                            </select>
-                            <input
-                                type="number" step="0.001" placeholder="Grams" required
-                                className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={newOther.grams} onChange={e => setNewOther({ ...newOther, grams: e.target.value })}
-                            />
-                            <input
-                                type="number" step="0.01" placeholder="Amount (optional)"
-                                className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={newOther.amount} onChange={e => setNewOther({ ...newOther, amount: e.target.value })}
-                            />
-                            <button
-                                type="submit" disabled={addingOther}
-                                className="bg-indigo-600 text-white rounded-lg px-4 py-2 text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                            >
-                                {addingOther ? 'Adding...' : 'Add Transaction'}
-                            </button>
-                        </form>
+                        {!isReadOnly && (
+                            <form onSubmit={handleAddOther} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <input
+                                    type="text" placeholder="Name" required
+                                    className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newOther.name} onChange={e => setNewOther({ ...newOther, name: e.target.value })}
+                                />
+                                <input
+                                    type="text" placeholder="Description"
+                                    className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newOther.description} onChange={e => setNewOther({ ...newOther, description: e.target.value })}
+                                />
+                                <select
+                                    className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newOther.type} onChange={e => setNewOther({ ...newOther, type: e.target.value })}
+                                >
+                                    <option value="Addition">Addition (+)</option>
+                                    <option value="Subtraction">Subtraction (-)</option>
+                                </select>
+                                <input
+                                    type="number" step="0.001" placeholder="Grams" required
+                                    className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newOther.grams} onChange={e => setNewOther({ ...newOther, grams: e.target.value })}
+                                />
+                                <input
+                                    type="number" step="0.01" placeholder="Amount (optional)"
+                                    className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newOther.amount} onChange={e => setNewOther({ ...newOther, amount: e.target.value })}
+                                />
+                                <button
+                                    type="submit" disabled={addingOther}
+                                    className="bg-indigo-600 text-white rounded-lg px-4 py-2 text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                                >
+                                    {addingOther ? 'Adding...' : 'Add Transaction'}
+                                </button>
+                            </form>
+                        )}
 
                         <table className="w-full text-sm">
                             <thead className="text-left text-xs uppercase tracking-widest text-gray-500 border-b border-gray-200 text-center">
@@ -609,7 +617,7 @@ const BillingSummary = () => {
                                     <th className="py-3 px-3">Type</th>
                                     <th className="py-3 px-3">Grams</th>
                                     <th className="py-3 px-3">Amount</th>
-                                    <th className="py-3 px-3 text-right">Action</th>
+                                    {!isReadOnly && <th className="py-3 px-3 text-right">Action</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -629,14 +637,16 @@ const BillingSummary = () => {
                                             {t.type === 'Addition' ? '+' : '-'}{number3(t.grams)} g
                                         </td>
                                         <td className="py-4 px-3 text-center text-gray-600">₹{Number(t.amount || 0).toLocaleString('en-IN')}</td>
-                                        <td className="py-4 px-3 text-right">
-                                            <button
-                                                onClick={() => handleDeleteOther(t._id)}
-                                                className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </td>
+                                        {!isReadOnly && (
+                                            <td className="py-4 px-3 text-right">
+                                                <button
+                                                    onClick={() => handleDeleteOther(t._id)}
+                                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

@@ -13,8 +13,10 @@ import {
     ShoppingCart
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useDevice } from '../context/DeviceContext';
 
 const DealerManagement = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const navigate = useNavigate();
     const location = useLocation();
     const [dealers, setDealers] = useState([]);
@@ -315,13 +317,15 @@ const DealerManagement = () => {
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dealers</h1>
-                    <button
-                        onClick={handleB2BSalesRedirect}
-                        className="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-lg shadow-sm transition-all"
-                    >
-                        <ShoppingCart size={18} />
-                        Dealer Purchase Stock
-                    </button>
+                    {!isReadOnly && (
+                        <button
+                            onClick={handleB2BSalesRedirect}
+                            className="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-lg shadow-sm transition-all"
+                        >
+                            <ShoppingCart size={18} />
+                            Dealer Purchase Stock
+                        </button>
+                    )}
                 </div>
                 <div className="flex items-center gap-4 text-sm font-medium text-gray-500 bg-white px-4 py-2 rounded-lg shadow-sm">
                     <div className="flex items-center gap-2 border-r pr-4">
@@ -364,8 +368,8 @@ const DealerManagement = () => {
                                 type="text"
                                 value={phoneNumber}
                                 onChange={(e) => setPhoneNumber(e.target.value)}
-                                readOnly={!!selectedDealerId}
-                                className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium ${!!selectedDealerId ? 'bg-gray-50 disabled:cursor-not-allowed' : 'bg-white focus:ring-2 focus:ring-yellow-400 outline-none'}`}
+                                readOnly={!!selectedDealerId || isReadOnly}
+                                className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium ${!!selectedDealerId || isReadOnly ? 'bg-gray-50 disabled:cursor-not-allowed' : 'bg-white focus:ring-2 focus:ring-yellow-400 outline-none'}`}
                                 placeholder="+91 98765 43210"
                             />
                         </div>
@@ -375,7 +379,8 @@ const DealerManagement = () => {
                                 type="date"
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium"
+                                readOnly={isReadOnly}
+                                className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium ${isReadOnly ? 'bg-gray-50' : 'bg-white'}`}
                             />
                         </div>
                         <div>
@@ -384,7 +389,8 @@ const DealerManagement = () => {
                                 type="time"
                                 value={time}
                                 onChange={(e) => setTime(e.target.value)}
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium"
+                                readOnly={isReadOnly}
+                                className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium ${isReadOnly ? 'bg-gray-50' : 'bg-white'}`}
                             />
                         </div>
                     </div>
@@ -400,28 +406,31 @@ const DealerManagement = () => {
                                     step="0.001"
                                     value={currentBalance}
                                     onChange={(e) => setCurrentBalance(e.target.value)}
-                                    className={`w-full pl-10 pr-20 py-4 bg-white border border-gray-200 rounded-2xl text-2xl font-bold focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all ${toThreeDecimals(currentBalance) >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                                    readOnly={isReadOnly}
+                                    className={`w-full pl-10 pr-20 py-4 border border-gray-200 rounded-2xl text-2xl font-bold focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all ${isReadOnly ? 'bg-gray-50' : 'bg-white'} ${toThreeDecimals(currentBalance) >= 0 ? 'text-green-500' : 'text-red-500'}`}
                                     placeholder="0.000"
                                 />
                                 <span className="absolute left-5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-300">g</span>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentBalance(Math.abs(toThreeDecimals(currentBalance)))}
-                                        className={`w-6 h-6 rounded-md transition-all shadow-sm flex items-center justify-center ${toThreeDecimals(currentBalance) >= 0 ? 'bg-green-500 scale-110 shadow-green-200' : 'bg-green-100 hover:bg-green-200'}`}
-                                        title="Dealer Owes Us (+)"
-                                    >
-                                        {toThreeDecimals(currentBalance) >= 0 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentBalance(-Math.abs(toThreeDecimals(currentBalance)))}
-                                        className={`w-6 h-6 rounded-md transition-all shadow-sm flex items-center justify-center ${toThreeDecimals(currentBalance) < 0 ? 'bg-red-500 scale-110 shadow-red-200' : 'bg-red-100 hover:bg-red-200'}`}
-                                        title="We Owe Dealer (-)"
-                                    >
-                                        {toThreeDecimals(currentBalance) < 0 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                    </button>
-                                </div>
+                                {!isReadOnly && (
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentBalance(Math.abs(toThreeDecimals(currentBalance)))}
+                                            className={`w-6 h-6 rounded-md transition-all shadow-sm flex items-center justify-center ${toThreeDecimals(currentBalance) >= 0 ? 'bg-green-500 scale-110 shadow-green-200' : 'bg-green-100 hover:bg-green-200'}`}
+                                            title="Dealer Owes Us (+)"
+                                        >
+                                            {toThreeDecimals(currentBalance) >= 0 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentBalance(-Math.abs(toThreeDecimals(currentBalance)))}
+                                            className={`w-6 h-6 rounded-md transition-all shadow-sm flex items-center justify-center ${toThreeDecimals(currentBalance) < 0 ? 'bg-red-500 scale-110 shadow-red-200' : 'bg-red-100 hover:bg-red-200'}`}
+                                            title="We Owe Dealer (-)"
+                                        >
+                                            {toThreeDecimals(currentBalance) < 0 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <p className="text-[10px] mt-2 font-bold text-gray-400 uppercase tracking-widest">
                                 {toThreeDecimals(currentBalance) >= 0 ? "Dealer Owes Us" : "We Owe Dealer"}
@@ -435,7 +444,8 @@ const DealerManagement = () => {
                                     step="0.001"
                                     value={totalGramPurchase}
                                     onChange={(e) => setTotalGramPurchase(e.target.value)}
-                                    className="w-full px-4 py-4 bg-white border border-gray-200 rounded-2xl text-2xl font-bold text-gray-900 focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all"
+                                    readOnly={isReadOnly}
+                                    className={`w-full px-4 py-4 border border-gray-200 rounded-2xl text-2xl font-bold focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all ${isReadOnly ? 'bg-gray-50 text-gray-700' : 'bg-white text-gray-900'}`}
                                     placeholder="0.000"
                                 />
                             </div>
@@ -451,7 +461,8 @@ const DealerManagement = () => {
                                     step="0.001"
                                     value={sriBill}
                                     onChange={(e) => setSriBill(e.target.value)}
-                                    className="w-full px-4 py-4 bg-white border border-gray-200 rounded-2xl text-2xl font-bold text-gray-900 focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all"
+                                    readOnly={isReadOnly}
+                                    className={`w-full px-4 py-4 border border-gray-200 rounded-2xl text-2xl font-bold focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all ${isReadOnly ? 'bg-gray-50 text-gray-700' : 'bg-white text-gray-900'}`}
                                     placeholder="0.000"
                                 />
                             </div>
@@ -483,7 +494,8 @@ const DealerManagement = () => {
                                     step="0.001"
                                     value={dealerPurchaseCost}
                                     onChange={(e) => setDealerPurchaseCost(e.target.value)}
-                                    className="w-full px-4 py-4 bg-white border border-gray-200 rounded-2xl text-2xl font-bold text-gray-900 focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all"
+                                    readOnly={isReadOnly}
+                                    className={`w-full px-4 py-4 border border-gray-200 rounded-2xl text-2xl font-bold focus:ring-4 focus:ring-yellow-400/20 outline-none transition-all ${isReadOnly ? 'bg-gray-50 text-gray-700' : 'bg-white text-gray-900'}`}
                                     placeholder="0.000"
                                 />
                             </div>
@@ -645,44 +657,46 @@ const DealerManagement = () => {
                                     </div>
                                 </div>
 
-                                <div className="mt-8 pt-8 border-t border-gray-50 flex justify-end items-center gap-4">
-                                    <div className="flex gap-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleCancelItem(index)}
-                                            className="flex items-center gap-2 px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl transition-all active:scale-95 text-xs"
-                                        >
-                                            <Minus size={16} />
-                                            Cancel Item
-                                        </button>
-                                        {index === items.length - 1 && (
+                                {!isReadOnly && (
+                                    <div className="mt-8 pt-8 border-t border-gray-50 flex justify-end items-center gap-4">
+                                        <div className="flex gap-4">
                                             <button
                                                 type="button"
-                                                onClick={handleAddItem}
-                                                className="flex items-center gap-2 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-black font-extrabold rounded-xl shadow-lg shadow-yellow-200 transition-all active:scale-95 text-xs"
+                                                onClick={() => handleCancelItem(index)}
+                                                className="flex items-center gap-2 px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl transition-all active:scale-95 text-xs"
                                             >
-                                                <Plus size={16} />
-                                                Add Item
+                                                <Minus size={16} />
+                                                Cancel Item
                                             </button>
-                                        )}
-                                        {index === items.length - 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={handleSaveStockDetails}
-                                                disabled={loading}
-                                                className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 disabled:opacity-50 text-xs"
-                                            >
-                                                {loading && loadingAction === 'stockOnly' ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-                                                Save Stock Details
-                                            </button>
-                                        )}
+                                            {index === items.length - 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddItem}
+                                                    className="flex items-center gap-2 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-black font-extrabold rounded-xl shadow-lg shadow-yellow-200 transition-all active:scale-95 text-xs"
+                                                >
+                                                    <Plus size={16} />
+                                                    Add Item
+                                                </button>
+                                            )}
+                                            {index === items.length - 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSaveStockDetails}
+                                                    disabled={loading}
+                                                    className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 disabled:opacity-50 text-xs"
+                                                >
+                                                    {loading && loadingAction === 'stockOnly' ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                                                    Save Stock Details
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 ))}
-                {items.length === 0 && (
+                {items.length === 0 && !isReadOnly && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex justify-end gap-4">
                         <button
                             type="button"
@@ -705,21 +719,23 @@ const DealerManagement = () => {
                 )}
             </div>
 
-            <div className="mt-8 flex justify-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className={`mt-8 flex justify-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 ${isReadOnly ? 'justify-center' : ''}`}>
                 <button
                     onClick={() => navigate('/admin/dashboard')}
                     className="px-8 py-3 bg-gray-50 text-gray-500 font-bold rounded-xl hover:bg-gray-100 transition-colors text-sm"
                 >
-                    Cancel
+                    {isReadOnly ? 'Back to Dashboard' : 'Cancel'}
                 </button>
-                <button
-                    onClick={handleSaveTransaction}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-8 py-3 bg-yellow-400 hover:bg-yellow-500 text-black font-extrabold rounded-xl shadow-lg shadow-yellow-200 transition-all active:scale-95 disabled:opacity-50 text-sm"
-                >
-                    {loading && loadingAction === 'transactionOnly' ? <RefreshCw className="animate-spin" size={18} /> : <Save size={18} />}
-                    Save Transaction
-                </button>
+                {!isReadOnly && (
+                    <button
+                        onClick={handleSaveTransaction}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-8 py-3 bg-yellow-400 hover:bg-yellow-500 text-black font-extrabold rounded-xl shadow-lg shadow-yellow-200 transition-all active:scale-95 disabled:opacity-50 text-sm"
+                    >
+                        {loading && loadingAction === 'transactionOnly' ? <RefreshCw className="animate-spin" size={18} /> : <Save size={18} />}
+                        Save Transaction
+                    </button>
+                )}
             </div>
 
             {message && (

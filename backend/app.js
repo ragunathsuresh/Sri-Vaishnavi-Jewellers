@@ -27,7 +27,18 @@ app.use(cookieParser());
 
 // CORS configuration
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            process.env.FRONTEND_URL || 'http://localhost:5173',
+            'http://localhost:5174',
+            'http://localhost:5175'
+        ];
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all in dev if needed, or stick to list
+        }
+    },
     credentials: true,
 }));
 

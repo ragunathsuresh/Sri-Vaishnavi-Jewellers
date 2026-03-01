@@ -19,6 +19,7 @@ const adminSchema = new mongoose.Schema({
     },
     role: {
         type: String,
+        enum: ['admin', 'viewer'],
         default: 'admin'
     },
     loginAttempts: {

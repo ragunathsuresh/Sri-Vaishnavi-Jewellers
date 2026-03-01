@@ -22,12 +22,31 @@ const protect = async (req, res, next) => {
     }
 };
 
+const restrictTo = (...roles) => {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+        next();
+    };
+};
+
+// Middleware to block write operations for viewers
+const blockReadOnly = (req, res, next) => {
+    if (req.user && req.user.role === 'viewer') {
+        if (req.method !== 'GET') {
+            return res.status(403).json({ message: 'Read-only access: Write operations are blocked.' });
+        }
+    }
+    next();
+};
+
 const admin = (req, res, next) => {
     if (req.user && req.user.role === 'admin') {
         next();
     } else {
-        res.status(401).json({ message: 'Not authorized as an admin' });
+        res.status(403).json({ message: 'Not authorized as an admin' });
     }
 };
 
-module.exports = { protect, admin };
+module.exports = { protect, admin, restrictTo, blockReadOnly };

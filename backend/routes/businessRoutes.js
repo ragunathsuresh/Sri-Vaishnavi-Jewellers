@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { calculate, getSummary } = require('../controllers/businessController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
-router.post('/calculate', protect, calculate);
-router.get('/summary', protect, getSummary);
+router.use(protect);
+router.use(blockReadOnly);
+
+router.post('/calculate', calculate);
+router.get('/summary', getSummary);
 
 module.exports = router;

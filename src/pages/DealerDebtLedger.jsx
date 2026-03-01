@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Download, Search, UserPlus, X, Pencil, Check, Trash2, AlertTriangle, ArrowUpRight } from 'lucide-react';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 
 const DealerDebtLedger = ({ mode = 'receivable' }) => {
+    const { isReadOnly, isMobile } = useDevice();
     const navigate = useNavigate();
     const [dealers, setDealers] = useState([]);
     const [lineStockRows, setLineStockRows] = useState([]);
@@ -369,7 +371,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                     <p className="text-sm text-gray-500 mt-1">Dealer balances and line stock receivables</p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    {mode !== 'receivable' && (
+                    {mode !== 'receivable' && !isReadOnly && (
                         <button
                             onClick={() => setShowAddUser(true)}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#b8860b] hover:bg-[#8b6508] text-white font-bold text-sm transition-all shadow-lg shadow-[#b8860b33]"
@@ -417,7 +419,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Type</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance (g)</th>
-                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
+                                {!isReadOnly && <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -476,41 +478,43 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                                     </div>
                                                 ) : (
                                                     <div
-                                                        className="flex items-center justify-end gap-2 group cursor-pointer"
-                                                        onClick={() => startEdit(d)}
-                                                        title="Click to edit"
+                                                        className={`flex items-center justify-end gap-2 group ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                                                        onClick={() => !isReadOnly && startEdit(d)}
+                                                        title={isReadOnly ? "" : "Click to edit"}
                                                     >
                                                         <span className={`font-black text-[12px] ${bal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                                             {Math.abs(bal).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} g
                                                         </span>
-                                                        <Pencil size={11} className="text-gray-300 group-hover:text-[#b8860b] transition-colors" />
+                                                        {!isReadOnly && <Pencil size={11} className="text-gray-300 group-hover:text-[#b8860b] transition-colors" />}
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-2 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate('/admin/dealers', { state: { dealerName: d.name } });
-                                                        }}
-                                                        className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
-                                                        title="Manage Dealer"
-                                                    >
-                                                        <Pencil size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            deleteRecord(d._id);
-                                                        }}
-                                                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                        title="Delete User"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            {!isReadOnly && (
+                                                <td className="px-4 py-2 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate('/admin/dealers', { state: { dealerName: d.name } });
+                                                            }}
+                                                            className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
+                                                            title="Manage Dealer"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                deleteRecord(d._id);
+                                                            }}
+                                                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })
@@ -519,7 +523,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                         {!loading && filteredDealers.length > 0 && (
                             <tfoot>
                                 <tr className="bg-gray-900 border-t border-gray-700">
-                                    <td colSpan="5" className="px-4 py-3 text-[10px] font-black text-yellow-400 uppercase tracking-widest">Total</td>
+                                    <td colSpan={isReadOnly ? 4 : 5} className="px-4 py-3 text-[10px] font-black text-yellow-400 uppercase tracking-widest">Total</td>
                                     <td className="px-4 py-3 font-black text-yellow-400 text-[13px] text-right">
                                         {filteredDealers
                                             .reduce((sum, d) => sum + Math.abs(Number(d.runningBalance ?? 0)), 0)
@@ -550,7 +554,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                         <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
                                         <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Status</th>
                                         <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance (g)</th>
-                                        <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
+                                        {!isReadOnly && <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -607,9 +611,9 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                                         </div>
                                                     ) : (
                                                         <div
-                                                            className="flex items-center justify-end gap-2 group cursor-pointer"
-                                                            onClick={() => startLsEdit(row)}
-                                                            title="Click to edit balance"
+                                                            className={`flex items-center justify-end gap-2 group ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                                                            onClick={() => !isReadOnly && startLsEdit(row)}
+                                                            title={isReadOnly ? "" : "Click to edit balance"}
                                                         >
                                                             <span className={`font-black text-[12px] ${Number(row.outstandingBalance ?? 0) <= 0
                                                                 ? 'text-green-600'
@@ -619,34 +623,36 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                                                 }`}>
                                                                 {Number(row.outstandingBalance ?? 0).toFixed(3)} g
                                                             </span>
-                                                            <Pencil size={11} className="text-gray-300 group-hover:text-[#b8860b] transition-colors" />
+                                                            {!isReadOnly && <Pencil size={11} className="text-gray-300 group-hover:text-[#b8860b] transition-colors" />}
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-2 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                navigate('/admin/dealers', { state: { dealerName: row.personName } });
-                                                            }}
-                                                            className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
-                                                            title="Manage Dealer"
-                                                        >
-                                                            <Pencil size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                deleteRecord(null, row);
-                                                            }}
-                                                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                            title="Delete User"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
+                                                {!isReadOnly && (
+                                                    <td className="px-4 py-2 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    navigate('/admin/dealers', { state: { dealerName: row.personName } });
+                                                                }}
+                                                                className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
+                                                                title="Manage Dealer"
+                                                            >
+                                                                <Pencil size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    deleteRecord(null, row);
+                                                                }}
+                                                                className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                                title="Delete User"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))
                                     )}
@@ -665,7 +671,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                 )}
                             </table>
                         </div>
-                    </div>
+                    </div >
                 )
             }
 
@@ -686,7 +692,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Date / Time</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Details</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance After</th>
-                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
+                                {!isReadOnly && <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -751,24 +757,26 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                                             <td className={`px-4 py-4 font-black text-[12px] text-right ${bal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                                 {isGold ? `${bal.toFixed(3)} g` : `₹${Math.abs(bal).toLocaleString('en-IN')}`}
                                             </td>
-                                            <td className="px-4 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
-                                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                                                        title="Manage"
-                                                    >
-                                                        <Pencil size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => deleteRecord(txn._id, null, true)}
-                                                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                                        title="Delete Transaction"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            {!isReadOnly && (
+                                                <td className="px-4 py-4 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
+                                                            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                            title="Manage"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteRecord(txn._id, null, true)}
+                                                            className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                            title="Delete Transaction"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })
@@ -796,7 +804,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                         </button>
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Add User Modal */}
             {
@@ -879,7 +887,7 @@ const DealerDebtLedger = ({ mode = 'receivable' }) => {
                 )
             }
 
-        </div>
+        </div >
     );
 };
 

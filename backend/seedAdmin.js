@@ -31,10 +31,26 @@ const seedAdmin = async () => {
                 name: 'Sri Vaishnavi Admin',
                 email: email,
                 password: password,
-                role: 'admin'
+                role: process.env.INITIAL_ADMIN_ROLE || 'admin'
             });
             await admin.save();
-            console.log('Admin created successfully');
+            console.log(`Admin created successfully with role: ${admin.role}`);
+        }
+
+        // Seed a viewer user for testing if specified
+        const viewerEmail = process.env.VIEWER_EMAIL || 'viewer@example.com';
+        const viewerPassword = process.env.VIEWER_PASSWORD || 'viewer123';
+        let viewer = await Admin.findOne({ email: viewerEmail });
+        if (!viewer) {
+            console.log(`Creating test viewer user: ${viewerEmail}`);
+            viewer = new Admin({
+                name: 'Test Viewer',
+                email: viewerEmail,
+                password: viewerPassword,
+                role: 'viewer'
+            });
+            await viewer.save();
+            console.log('Test viewer user created successfully');
         }
 
         process.exit(0);

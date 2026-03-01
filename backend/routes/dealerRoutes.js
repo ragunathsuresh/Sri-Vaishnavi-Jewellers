@@ -10,9 +10,10 @@ const {
     deleteDealer,
     deleteDealerTransaction
 } = require('../controllers/dealerController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
 router.use(protect);
+router.use(blockReadOnly);
 
 router.route('/')
     .get(getDealers);

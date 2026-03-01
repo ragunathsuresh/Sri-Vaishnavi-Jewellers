@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ExpenseTable = ({ rows, loading, onEdit, onDelete, page = 1, pageSize = 100 }) => {
+const ExpenseTable = ({ rows, loading, onEdit, onDelete, page = 1, pageSize = 100, isReadOnly }) => {
     const formatCurrency = (value) => new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
@@ -29,9 +29,10 @@ const ExpenseTable = ({ rows, loading, onEdit, onDelete, page = 1, pageSize = 10
             <table className="w-full min-w-[980px]">
                 <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                        {['S.No', 'Expense Name', 'Expense Type', 'Date', 'Time', 'Amount (₹)', 'Notes', 'Action'].map((label) => (
+                        {['S.No', 'Expense Name', 'Expense Type', 'Date', 'Time', 'Amount (₹)', 'Notes'].map((label) => (
                             <th key={label} className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-black text-gray-500">{label}</th>
                         ))}
+                        {!isReadOnly && <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-black text-gray-500">Action</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -52,22 +53,24 @@ const ExpenseTable = ({ rows, loading, onEdit, onDelete, page = 1, pageSize = 10
                             <td className="px-4 py-3 text-sm text-gray-700">{row.expenseTime || '-'}</td>
                             <td className="px-4 py-3 text-sm font-black text-gray-900">{formatCurrency(row.amount)}</td>
                             <td className="px-4 py-3 text-sm text-gray-600 max-w-[240px] truncate">{row.notes || '-'}</td>
-                            <td className="px-4 py-3 text-sm">
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => onEdit(row)}
-                                        className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        onClick={() => onDelete(row)}
-                                        className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 font-semibold hover:bg-red-50"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </td>
+                            {!isReadOnly && (
+                                <td className="px-4 py-3 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => onEdit(row)}
+                                            className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => onDelete(row)}
+                                            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 font-semibold hover:bg-red-50"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            )}
                         </tr>
                     ))}
                 </tbody>

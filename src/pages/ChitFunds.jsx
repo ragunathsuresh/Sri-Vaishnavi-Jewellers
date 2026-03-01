@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, Plus, Search, Download, Loader2, UserPlus, X, Trash2, Pencil } from 'lucide-react';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 
 const formatDate = (value) => {
     if (!value) return '-';
@@ -15,6 +16,7 @@ const formatDate = (value) => {
 const formatCurrency = (value) => `Rs.${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 const ChitFunds = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const navigate = useNavigate();
     const location = useLocation();
     const [rows, setRows] = useState([]);
@@ -214,7 +216,7 @@ const ChitFunds = () => {
                     <h1 className="text-3xl font-black text-gray-900 tracking-tight">Chit Fund Management</h1>
                     <p className="text-gray-500 mt-1">Daily collections, gold conversion, and customer ledger.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className={`flex flex-wrap items-center gap-3 ${isMobile ? 'order-last' : ''}`}>
                     <div className="bg-white border border-yellow-100 rounded-xl px-4 py-2 shadow-sm">
                         <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Today's Gold Rate (22K)</p>
                         <p className="text-2xl font-black text-gray-900">{formatCurrency(todayRate)}<span className="text-base font-semibold text-gray-500">/gm</span></p>
@@ -225,29 +227,33 @@ const ChitFunds = () => {
                         className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 font-bold shadow-sm disabled:opacity-50"
                     >
                         {exporting ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
-                        {exporting ? 'Exporting...' : 'Export CSV'}
+                        {exporting ? 'Export CSV' : 'Export CSV'}
                     </button>
                     <button
                         onClick={() => setShowUserSearch(!showUserSearch)}
                         className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl border font-bold shadow-sm transition-all ${showUserSearch ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-50'}`}
                     >
                         {showUserSearch ? <X size={18} /> : <UserPlus size={18} />}
-                        {showUserSearch ? 'Close' : 'User'}
+                        {showUserSearch ? 'Close' : 'User History'}
                     </button>
-                    <button
-                        onClick={() => navigate('/admin/chit/past/new')}
-                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 font-bold shadow-sm"
-                    >
-                        <Plus size={18} />
-                        Add Past Entry
-                    </button>
-                    <button
-                        onClick={() => navigate('/admin/chit/new')}
-                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold shadow-md"
-                    >
-                        <Plus size={18} />
-                        Add New Entry
-                    </button>
+                    {!isReadOnly && (
+                        <>
+                            <button
+                                onClick={() => navigate('/admin/chit/past/new')}
+                                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 font-bold shadow-sm"
+                            >
+                                <Plus size={18} />
+                                Add Past Entry
+                            </button>
+                            <button
+                                onClick={() => navigate('/admin/chit/new')}
+                                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold shadow-md"
+                            >
+                                <Plus size={18} />
+                                Add New Entry
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -319,13 +325,15 @@ const ChitFunds = () => {
                         ) : userResults.length > 0 ? (
                             userResults.map((user) => (
                                 <div key={user._id || user.phoneNumber} className="bg-gray-50 border border-gray-100 rounded-2xl p-5 hover:border-yellow-200 transition-all group relative">
-                                    <button
-                                        onClick={() => handleDeleteUserHistory(user.phoneNumber, user.customerName)}
-                                        className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors"
-                                        title="Delete entire history"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
+                                    {!isReadOnly && (
+                                        <button
+                                            onClick={() => handleDeleteUserHistory(user.phoneNumber, user.customerName)}
+                                            className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors"
+                                            title="Delete entire history"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    )}
                                     <div className="mb-4">
                                         <h4 className="text-lg font-black text-gray-900">{user.customerName}</h4>
                                         <p className="text-sm text-gray-500 font-semibold">{user.phoneNumber}</p>
@@ -363,9 +371,10 @@ const ChitFunds = () => {
                 <table className="w-full min-w-[1120px]">
                     <thead>
                         <tr className="bg-gray-50 border-b border-gray-100">
-                            {['S.No', 'Customer Name', 'Date', 'Time', 'Phone Number', 'Amount', 'Gold Rate (Today)', 'Rate Applied', 'Grams Purchased', 'Action'].map((label) => (
+                            {['S.No', 'Customer Name', 'Date', 'Time', 'Phone Number', 'Amount', 'Gold Rate', 'Rate Applied', 'Grams Purchased'].map((label) => (
                                 <th key={label} className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-black text-gray-500">{label}</th>
                             ))}
+                            {!isReadOnly && <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-black text-gray-500">Action</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -389,24 +398,26 @@ const ChitFunds = () => {
                                     <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(row.goldRateToday)}</td>
                                     <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(row.rateApplied)}</td>
                                     <td className="px-4 py-3 text-sm font-extrabold text-yellow-700">{Number(row.gramsPurchased || 0).toFixed(3)} gms</td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => navigate(`/admin/chit/${row.isPastEntry ? 'past/edit' : 'edit'}/${row._id}`)}
-                                                className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                                                title="Edit"
-                                            >
-                                                <Pencil size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(row._id)}
-                                                className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    </td>
+                                    {!isReadOnly && (
+                                        <td className="px-4 py-3 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => navigate(`/admin/chit/${row.isPastEntry ? 'past/edit' : 'edit'}/${row._id}`)}
+                                                    className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(row._id)}
+                                                    className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ))
                         )}

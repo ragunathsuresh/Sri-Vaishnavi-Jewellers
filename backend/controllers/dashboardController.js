@@ -42,6 +42,13 @@ const getDashboardStats = async (req, res) => {
             };
         });
 
+        // 4. Monthly Statistics
+        const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+        const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
+        const monthlySales = await Sale.find({
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+        });
+
         // 3. Customer Sales (Recent)
         const recentSales = await Sale.find({
             createdAt: { $gte: startOfDay, $lte: endOfDay }
@@ -67,7 +74,9 @@ const getDashboardStats = async (req, res) => {
                     receiptItems: sale.receiptItems.map(r => ({ type: r.receiptType, weight: r.weight, value: r.value })),
                     totalAmount: sale.totalIssuedValue
                 })),
-                totalDailySales: recentSales.reduce((acc, s) => acc + s.totalIssuedValue, 0)
+                totalDailySales: recentSales.reduce((acc, s) => acc + s.totalIssuedValue, 0),
+                totalMonthlySales: monthlySales.reduce((acc, s) => acc + (s.totalIssuedValue || 0), 0),
+                monthlySalesCount: monthlySales.length
             }
         });
     } catch (error) {

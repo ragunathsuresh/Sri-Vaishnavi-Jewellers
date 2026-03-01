@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar, Plus, Search, Download, Loader2 } from 'lucide-react';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 import ExpenseTable from '../components/expenses/ExpenseTable';
 import ExpenseFormModal from '../components/expenses/ExpenseFormModal';
 
 const todayDateInput = () => new Date().toISOString().slice(0, 10);
 
 const ExpensePage = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -215,14 +217,14 @@ const ExpensePage = () => {
                     <h1 className="text-3xl font-black text-gray-900 tracking-tight">Expense Management</h1>
                     <p className="text-gray-500 mt-1">Daily and Monthly expense tracking</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className={`flex flex-wrap items-center gap-3 ${isMobile ? 'order-last' : ''}`}>
                     <button
                         onClick={handleExportCsv}
                         disabled={exporting || loading}
                         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 font-bold shadow-sm disabled:opacity-50"
                     >
                         {exporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-                        {exporting ? 'Exporting...' : 'Export CSV'}
+                        {exporting ? 'Export CSV' : 'Export CSV'}
                     </button>
                     <div className="bg-white border border-yellow-100 rounded-xl px-4 py-2 shadow-sm">
                         <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Current Date & Time</p>
@@ -285,13 +287,15 @@ const ExpensePage = () => {
                         </select>
                     </div>
                     <div className="xl:col-span-2">
-                        <button
-                            onClick={openCreateModal}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold shadow-md"
-                        >
-                            <Plus size={18} />
-                            Add New Expense
-                        </button>
+                        {!isReadOnly && (
+                            <button
+                                onClick={openCreateModal}
+                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold shadow-md"
+                            >
+                                <Plus size={18} />
+                                Add New Expense
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -307,6 +311,7 @@ const ExpensePage = () => {
                 loading={loading}
                 onEdit={openEditModal}
                 onDelete={handleDelete}
+                isReadOnly={isReadOnly}
             />
 
             <ExpenseFormModal

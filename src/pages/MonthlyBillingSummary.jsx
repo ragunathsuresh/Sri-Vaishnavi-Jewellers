@@ -3,6 +3,7 @@ import { Calendar, Clock, Download, Loader2, Save, Share2 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 
 const number3 = (value) => Number(value || 0).toFixed(3);
 const formatDate = (value) => {
@@ -13,6 +14,7 @@ const formatDate = (value) => {
 };
 
 const MonthlyBillingSummary = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [now, setNow] = useState(new Date());
     const [loading, setLoading] = useState(true);
@@ -450,10 +452,23 @@ const MonthlyBillingSummary = () => {
                 <div className="bg-white border border-gray-200 rounded-2xl p-5">
                     <div className="text-xs text-gray-500 uppercase font-black tracking-widest mb-2">Current Amount in the Business</div>
                     <div className="flex items-center gap-2">
-                        <input type="text" inputMode="decimal" value={cashInput} onChange={(e) => setCashInput(e.target.value.replace(/[^0-9.]/g, ''))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
-                        <button onClick={saveCashBalance} disabled={savingCash} className="px-3 py-2 rounded-lg bg-[#b8860b] text-white font-bold disabled:opacity-60">
-                            <Save size={15} />
-                        </button>
+                        <input
+                            type="text"
+                            inputMode="decimal"
+                            value={cashInput}
+                            onChange={(e) => setCashInput(e.target.value.replace(/[^0-9.]/g, ''))}
+                            readOnly={isReadOnly}
+                            className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#b8860b33] ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        />
+                        {!isReadOnly && (
+                            <button
+                                onClick={saveCashBalance}
+                                disabled={savingCash}
+                                className="px-3 py-2 rounded-lg bg-[#b8860b] text-white font-bold disabled:opacity-60"
+                            >
+                                <Save size={15} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -676,41 +691,43 @@ const MonthlyBillingSummary = () => {
                     <section className="bg-white border border-gray-200 rounded-2xl p-5 overflow-x-auto">
                         <h2 className="text-lg font-black text-gray-900 mb-4">7. Others</h2>
 
-                        <form onSubmit={addOtherTransaction} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] uppercase font-bold text-gray-500">Date</label>
-                                <input type="date" value={otherDate} onChange={(e) => setOtherDate(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" required />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] uppercase font-bold text-gray-500">Name</label>
-                                <input type="text" placeholder="Name" value={otherName} onChange={(e) => setOtherName(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" required />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] uppercase font-bold text-gray-500">Description</label>
-                                <input type="text" placeholder="Description" value={otherDesc} onChange={(e) => setOtherDesc(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] uppercase font-bold text-gray-500">Type</label>
-                                <select value={otherType} onChange={(e) => setOtherType(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]">
-                                    <option value="Addition">Addition</option>
-                                    <option value="Subtraction">Subtraction</option>
-                                </select>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] uppercase font-bold text-gray-500">Grams</label>
-                                <input type="number" step="0.001" placeholder="Grams" value={otherGrams} onChange={(e) => setOtherGrams(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] uppercase font-bold text-gray-500">Amount</label>
-                                <input type="number" step="0.01" placeholder="Amount" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
-                            </div>
-                            <div className="flex flex-col gap-1 items-end justify-end">
-                                <button type="submit" disabled={addingOther} className="w-full px-4 py-2 rounded-lg bg-[#b8860b] text-white font-bold text-sm disabled:opacity-60 flex items-center justify-center gap-2">
-                                    {addingOther ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                    Add Entry
-                                </button>
-                            </div>
-                        </form>
+                        {!isReadOnly && (
+                            <form onSubmit={addOtherTransaction} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500">Date</label>
+                                    <input type="date" value={otherDate} onChange={(e) => setOtherDate(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" required />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500">Name</label>
+                                    <input type="text" placeholder="Name" value={otherName} onChange={(e) => setOtherName(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" required />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500">Description</label>
+                                    <input type="text" placeholder="Description" value={otherDesc} onChange={(e) => setOtherDesc(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500">Type</label>
+                                    <select value={otherType} onChange={(e) => setOtherType(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]">
+                                        <option value="Addition">Addition</option>
+                                        <option value="Subtraction">Subtraction</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500">Grams</label>
+                                    <input type="number" step="0.001" placeholder="Grams" value={otherGrams} onChange={(e) => setOtherGrams(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500">Amount</label>
+                                    <input type="number" step="0.01" placeholder="Amount" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b8860b33]" />
+                                </div>
+                                <div className="flex flex-col gap-1 items-end justify-end">
+                                    <button type="submit" disabled={addingOther} className="w-full px-4 py-2 rounded-lg bg-[#b8860b] text-white font-bold text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+                                        {addingOther ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                        Add Entry
+                                    </button>
+                                </div>
+                            </form>
+                        )}
 
                         <table className="w-full min-w-[800px] text-sm">
                             <thead className="text-left text-xs uppercase tracking-widest text-gray-500 border-b border-gray-200">
@@ -735,9 +752,11 @@ const MonthlyBillingSummary = () => {
                                         <td className={`py-3 pr-3 font-bold ${row.type === 'Addition' ? 'text-emerald-600' : 'text-red-600'}`}>{row.type}</td>
                                         <td className={`py-3 pr-3 font-bold ${row.type === 'Addition' ? 'text-emerald-700' : 'text-red-700'}`}>{number3(row.grams)} g</td>
                                         <td className={`py-3 pr-3 font-bold ${row.type === 'Addition' ? 'text-emerald-700' : 'text-red-700'}`}>₹{Number(row.amount || 0).toLocaleString('en-IN')}</td>
-                                        <td className="py-3 text-right">
-                                            <button onClick={() => deleteOtherTransaction(row._id)} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase tracking-tighter">Delete</button>
-                                        </td>
+                                        {!isReadOnly && (
+                                            <td className="py-3 text-right">
+                                                <button onClick={() => deleteOtherTransaction(row._id)} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase tracking-tighter">Delete</button>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -772,7 +791,8 @@ const MonthlyBillingSummary = () => {
                                                 inputMode="decimal"
                                                 value={businessSettings.sriBillPercentage}
                                                 onChange={(e) => setBusinessSettings(prev => ({ ...prev, sriBillPercentage: e.target.value.replace(/[^0-9.]/g, '') }))}
-                                                className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                                                readOnly={isReadOnly}
+                                                className={`w-full border border-amber-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-300 ${isReadOnly ? 'bg-amber-100/50' : 'bg-white'}`}
                                                 placeholder="e.g. 87"
                                             />
                                             <span className="text-sm font-bold text-amber-700 whitespace-nowrap">%</span>
@@ -788,23 +808,26 @@ const MonthlyBillingSummary = () => {
                                                 inputMode="decimal"
                                                 value={businessSettings.goldRate}
                                                 onChange={(e) => setBusinessSettings(prev => ({ ...prev, goldRate: e.target.value.replace(/[^0-9.]/g, '') }))}
-                                                className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                                                readOnly={isReadOnly}
+                                                className={`w-full border border-amber-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-300 ${isReadOnly ? 'bg-amber-100/50' : 'bg-white'}`}
                                                 placeholder="e.g. 6500"
                                             />
                                             <span className="text-sm font-bold text-amber-700 whitespace-nowrap">/g</span>
                                         </div>
                                         <p className="text-[10px] text-amber-600 mt-1 font-medium">Used to calculate: Cash ÷ Gold Rate</p>
                                     </div>
-                                    <div className="md:col-span-2 flex justify-end mt-2">
-                                        <button
-                                            onClick={recalculateBusiness}
-                                            disabled={isBusinessCalculating}
-                                            className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                                        >
-                                            {isBusinessCalculating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                            {isBusinessCalculating ? 'Calculating...' : 'Recalculate & Save Stats'}
-                                        </button>
-                                    </div>
+                                    {!isReadOnly && (
+                                        <div className="md:col-span-2 flex justify-end mt-2">
+                                            <button
+                                                onClick={recalculateBusiness}
+                                                disabled={isBusinessCalculating}
+                                                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {isBusinessCalculating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                                {isBusinessCalculating ? 'Calculating...' : 'Recalculate & Save Stats'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm border-collapse border border-gray-200 rounded-xl overflow-hidden">
@@ -813,7 +836,7 @@ const MonthlyBillingSummary = () => {
                                                 <th className="p-4 border-b border-gray-200">Component</th>
                                                 <th className="p-4 border-b border-gray-200">Description</th>
                                                 <th className="p-4 border-b border-gray-200">Grams</th>
-                                                <th className="p-4 border-b border-gray-200 text-right">Action</th>
+                                                {!isReadOnly && <th className="p-4 border-b border-gray-200 text-right">Action</th>}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 bg-white">
@@ -850,14 +873,16 @@ const MonthlyBillingSummary = () => {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    <button
-                                                        onClick={() => setEditingRow(editingRow === 'adjustedStock' ? null : 'adjustedStock')}
-                                                        className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
-                                                    >
-                                                        {editingRow === 'adjustedStock' ? 'Save' : 'Edit'}
-                                                    </button>
-                                                </td>
+                                                {!isReadOnly && (
+                                                    <td className="p-4 text-right">
+                                                        <button
+                                                            onClick={() => setEditingRow(editingRow === 'adjustedStock' ? null : 'adjustedStock')}
+                                                            className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
+                                                        >
+                                                            {editingRow === 'adjustedStock' ? 'Save' : 'Edit'}
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                             {/* Cash Row (was Cash Converted) */}
                                             <tr>
@@ -892,14 +917,16 @@ const MonthlyBillingSummary = () => {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    <button
-                                                        onClick={() => setEditingRow(editingRow === 'cashConverted' ? null : 'cashConverted')}
-                                                        className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
-                                                    >
-                                                        {editingRow === 'cashConverted' ? 'Save' : 'Edit'}
-                                                    </button>
-                                                </td>
+                                                {!isReadOnly && (
+                                                    <td className="p-4 text-right">
+                                                        <button
+                                                            onClick={() => setEditingRow(editingRow === 'cashConverted' ? null : 'cashConverted')}
+                                                            className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
+                                                        >
+                                                            {editingRow === 'cashConverted' ? 'Save' : 'Edit'}
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                             {/* Debt Receivable */}
                                             <tr>
@@ -928,14 +955,16 @@ const MonthlyBillingSummary = () => {
                                                         <span className="font-bold text-emerald-600">{number3(manualAdjustments.debtReceivableGrams ?? debtReceivableTotal)}</span>
                                                     )}
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    <button
-                                                        onClick={() => setEditingRow(editingRow === 'debtReceivable' ? null : 'debtReceivable')}
-                                                        className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
-                                                    >
-                                                        {editingRow === 'debtReceivable' ? 'Save' : 'Edit'}
-                                                    </button>
-                                                </td>
+                                                {!isReadOnly && (
+                                                    <td className="p-4 text-right">
+                                                        <button
+                                                            onClick={() => setEditingRow(editingRow === 'debtReceivable' ? null : 'debtReceivable')}
+                                                            className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
+                                                        >
+                                                            {editingRow === 'debtReceivable' ? 'Save' : 'Edit'}
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                             {/* Debt Payable */}
                                             <tr>
@@ -964,14 +993,16 @@ const MonthlyBillingSummary = () => {
                                                         <span className="font-bold text-red-600">{number3(manualAdjustments.debtPayableGrams ?? debtPayableTotal)}</span>
                                                     )}
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    <button
-                                                        onClick={() => setEditingRow(editingRow === 'debtPayable' ? null : 'debtPayable')}
-                                                        className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
-                                                    >
-                                                        {editingRow === 'debtPayable' ? 'Save' : 'Edit'}
-                                                    </button>
-                                                </td>
+                                                {!isReadOnly && (
+                                                    <td className="p-4 text-right">
+                                                        <button
+                                                            onClick={() => setEditingRow(editingRow === 'debtPayable' ? null : 'debtPayable')}
+                                                            className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
+                                                        >
+                                                            {editingRow === 'debtPayable' ? 'Save' : 'Edit'}
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                             {/* Chit Collection */}
                                             <tr>
@@ -1000,14 +1031,16 @@ const MonthlyBillingSummary = () => {
                                                         <span className="font-bold text-red-600">{number3(manualAdjustments.chitCollectionGrams ?? chitFundsGrams)}</span>
                                                     )}
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    <button
-                                                        onClick={() => setEditingRow(editingRow === 'chitCollection' ? null : 'chitCollection')}
-                                                        className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
-                                                    >
-                                                        {editingRow === 'chitCollection' ? 'Save' : 'Edit'}
-                                                    </button>
-                                                </td>
+                                                {!isReadOnly && (
+                                                    <td className="p-4 text-right">
+                                                        <button
+                                                            onClick={() => setEditingRow(editingRow === 'chitCollection' ? null : 'chitCollection')}
+                                                            className="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
+                                                        >
+                                                            {editingRow === 'chitCollection' ? 'Save' : 'Edit'}
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                             {/* Other Transactions Breakdown */}
                                             {summary?.otherTransactions?.map(t => (
@@ -1071,6 +1104,7 @@ const MonthlyBillingSummary = () => {
                                                     inputMode="decimal"
                                                     value={profitGoldRate}
                                                     onChange={(e) => setProfitGoldRate(e.target.value.replace(/[^0-9.]/g, ''))}
+                                                    readOnly={isReadOnly}
                                                     className="w-full text-xl font-black text-gray-900 outline-none focus:ring-1 focus:ring-amber-300 rounded bg-transparent"
                                                     placeholder="e.g. 6500"
                                                 />

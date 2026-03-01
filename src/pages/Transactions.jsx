@@ -26,8 +26,10 @@ import {
 } from 'lucide-react';
 import api from '../axiosConfig';
 import { format } from 'date-fns';
+import { useDevice } from '../context/DeviceContext';
 
 const Transactions = () => {
+    const { isReadOnly, isMobile } = useDevice();
     const [transactions, setTransactions] = useState([]);
     const [dealerTransactions, setDealerTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -44,6 +46,7 @@ const Transactions = () => {
     const [selectedTxn, setSelectedTxn] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -274,6 +277,38 @@ const Transactions = () => {
         }
     };
 
+    const exportToPDF = async () => {
+        try {
+            setExportingPdf(true);
+            const params = new URLSearchParams();
+            if (saleType !== 'All') params.append('saleType', saleType);
+            if (dateRange !== 'All Time') {
+                const now = new Date();
+                let start = new Date();
+                if (dateRange === 'Last 30 Days') start.setDate(now.getDate() - 30);
+                if (dateRange === 'Today') start.setHours(0, 0, 0, 0);
+                params.append('startDate', start.toISOString());
+            }
+
+            const response = await api.get(`/reports/transactions/pdf?${params.toString()}`, {
+                responseType: 'blob'
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Transaction_History_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            alert('Failed to download PDF report');
+        } finally {
+            setExportingPdf(false);
+        }
+    };
+
     const formatDateSafe = (value) => {
         if (!value) return '-';
         const asDate = new Date(value);
@@ -303,9 +338,9 @@ const Transactions = () => {
                 `}
             </style>
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                    <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
                         Transaction History
                         <span className="bg-gray-200/50 text-gray-500 text-[10px] px-2 py-0.5 rounded-full font-bold">
                             {transactions.length} Total
@@ -313,22 +348,26 @@ const Transactions = () => {
                     </h1>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-400 hover:text-gray-900 hover:border-gray-900 transition-all shadow-sm">
-                        <Clock size={20} />
-                    </button>
-                    <button onClick={() => navigate('/admin/sales')} className="flex items-center gap-2 bg-yellow-400 text-gray-900 px-6 py-2.5 rounded-xl font-black text-sm hover:bg-yellow-500 transition-all shadow-lg shadow-yellow-100">
-                        <Plus size={18} /> New Transaction
-                    </button>
+                    {!isMobile && (
+                        <button className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-400 hover:text-gray-900 hover:border-gray-900 transition-all shadow-sm">
+                            <Clock size={20} />
+                        </button>
+                    )}
+                    {!isReadOnly && (
+                        <button onClick={() => navigate('/admin/sales')} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-yellow-400 text-gray-900 px-6 py-2.5 rounded-xl font-black text-sm hover:bg-yellow-500 transition-all shadow-lg shadow-yellow-100">
+                            <Plus size={18} /> New Sale
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* Filters Bar */}
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-6 flex flex-wrap gap-4 items-center">
-                <div className="relative flex-1 min-w-[300px]">
+            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-center">
+                <div className="relative w-full md:flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input
                         type="text"
-                        placeholder="Search by ID, Customer Name or Phone..."
+                        placeholder="Search ID, Name or Phone..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         onKeyDown={handleSearch}
@@ -336,33 +375,44 @@ const Transactions = () => {
                     />
                 </div>
 
-                <select
-                    value={saleType}
-                    onChange={(e) => setSaleType(e.target.value)}
-                    className="bg-white border border-gray-200 px-4 py-3 rounded-xl font-bold text-sm outline-none cursor-pointer hover:border-gray-300"
-                >
-                    <option value="All">All Types</option>
-                    <option value="B2B">B2B</option>
-                    <option value="B2C">B2C</option>
-                </select>
+                <div className="flex w-full md:w-auto gap-2">
+                    <select
+                        value={saleType}
+                        onChange={(e) => setSaleType(e.target.value)}
+                        className="flex-1 md:flex-none bg-white border border-gray-200 px-4 py-3 rounded-xl font-bold text-xs md:text-sm outline-none cursor-pointer hover:border-gray-300"
+                    >
+                        <option value="All">All Types</option>
+                        <option value="B2B">B2B</option>
+                        <option value="B2C">B2C</option>
+                    </select>
 
-                <select
-                    value={dateRange}
-                    onChange={(e) => setDateRange(e.target.value)}
-                    className="bg-white border border-gray-200 px-4 py-3 rounded-xl font-bold text-sm outline-none cursor-pointer hover:border-gray-300"
-                >
-                    <option value="Last 30 Days">Last 30 Days</option>
-                    <option value="Today">Today</option>
-                    <option value="All Time">All Time</option>
-                </select>
+                    <select
+                        value={dateRange}
+                        onChange={(e) => setDateRange(e.target.value)}
+                        className="flex-1 md:flex-none bg-white border border-gray-200 px-4 py-3 rounded-xl font-bold text-xs md:text-sm outline-none cursor-pointer hover:border-gray-300"
+                    >
+                        <option value="Last 30 Days">Last 30 Days</option>
+                        <option value="Today">Today</option>
+                        <option value="All Time">All Time</option>
+                    </select>
+                </div>
 
-                <button
-                    onClick={exportToCSV}
-                    disabled={exporting}
-                    className="ml-auto bg-gray-900 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-black transition-all flex items-center gap-2 disabled:opacity-50"
-                >
-                    {exporting ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />} {exporting ? 'Exporting...' : 'Export CSV'}
-                </button>
+                <div className="flex w-full md:w-auto gap-2">
+                    <button
+                        onClick={exportToCSV}
+                        disabled={exporting}
+                        className="flex-1 bg-white border border-gray-200 text-gray-600 px-4 py-3 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {exporting ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />} CSV
+                    </button>
+                    <button
+                        onClick={exportToPDF}
+                        disabled={exportingPdf}
+                        className="flex-1 bg-gray-900 text-white px-4 py-3 rounded-xl font-bold text-sm hover:bg-black transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {exportingPdf ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />} PDF
+                    </button>
+                </div>
             </div>
 
             {/* Table */}
@@ -403,7 +453,7 @@ const Transactions = () => {
                             <th className="px-3 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-orange-50/30 w-[80px]">Act Touch</th>
                             <th className="px-3 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-orange-50/30 w-[80px]">Tkn Touch</th>
                             <th className="px-3 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-orange-50/30 font-bold w-[80px]">Purity (C)</th>
-                            <th className="px-4 py-4 text-[9px] font-black text-gray-500 uppercase tracking-widest bg-gray-50 w-[100px]">Actions</th>
+                            {!isReadOnly && <th className="px-4 py-4 text-[9px] font-black text-gray-500 uppercase tracking-widest bg-gray-50 w-[100px]">Actions</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -468,7 +518,7 @@ const Transactions = () => {
                                     <td className="px-3 py-4 text-[10px] font-bold text-green-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.actualTouch || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-emerald-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.takenTouch || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-gray-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.purity || '-'}</td>
-                                    {idx === 0 && (
+                                    {idx === 0 && !isReadOnly && (
                                         <td className="px-4 py-4 text-center border-l border-gray-100" rowSpan={rowCount}>
                                             <div className="flex items-center justify-center gap-2">
                                                 <button
@@ -522,13 +572,13 @@ const Transactions = () => {
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Time</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Amount</th>
-                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
+                                {!isReadOnly && <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {dealerLoading ? (
                                 <tr>
-                                    <td colSpan="7" className="py-14">
+                                    <td colSpan={isReadOnly ? 6 : 7} className="py-14">
                                         <div className="flex items-center justify-center gap-3 text-gray-400">
                                             <Loader2 className="animate-spin text-yellow-400" size={22} />
                                             <p className="font-bold text-sm">Fetching dealer transactions...</p>
@@ -537,7 +587,7 @@ const Transactions = () => {
                                 </tr>
                             ) : dealerTransactions.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="py-14 text-center text-gray-400 font-bold">
+                                    <td colSpan={isReadOnly ? 6 : 7} className="py-14 text-center text-gray-400 font-bold">
                                         No dealer transactions found.
                                     </td>
                                 </tr>
@@ -555,24 +605,26 @@ const Transactions = () => {
                                             <td className={`px-4 py-4 font-black text-[12px] text-right ${amountClass}`}>
                                                 ₹{Math.abs(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-4 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
-                                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <Pencil size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => deleteDealerTxn(txn._id, 'Dealer')}
-                                                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            {!isReadOnly && (
+                                                <td className="px-4 py-4 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
+                                                            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                            title="Edit"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteDealerTxn(txn._id, 'Dealer')}
+                                                            className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })
@@ -617,13 +669,13 @@ const Transactions = () => {
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Time</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Phone No</th>
                                 <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Balance After (g)</th>
-                                <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
+                                {!isReadOnly && <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {lineStockLoading ? (
                                 <tr>
-                                    <td colSpan="7" className="py-14">
+                                    <td colSpan={isReadOnly ? 6 : 7} className="py-14">
                                         <div className="flex items-center justify-center gap-3 text-gray-400">
                                             <Loader2 className="animate-spin text-yellow-400" size={22} />
                                             <p className="font-bold text-sm">Fetching line stock transactions...</p>
@@ -632,7 +684,7 @@ const Transactions = () => {
                                 </tr>
                             ) : lineStockTxns.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="py-14 text-center text-gray-400 font-bold">
+                                    <td colSpan={isReadOnly ? 6 : 7} className="py-14 text-center text-gray-400 font-bold">
                                         No line stock transactions found.
                                     </td>
                                 </tr>
@@ -650,24 +702,26 @@ const Transactions = () => {
                                             <td className={`px-4 py-4 font-black text-[12px] text-right ${balanceClass}`}>
                                                 {balance.toFixed(3)} g
                                             </td>
-                                            <td className="px-4 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
-                                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <Pencil size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => deleteDealerTxn(txn._id, 'Line Stocker')}
-                                                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            {!isReadOnly && (
+                                                <td className="px-4 py-4 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => navigate('/admin/dealers', { state: { dealerName: txn.name } })}
+                                                            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                            title="Edit"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteDealerTxn(txn._id, 'Line Stocker')}
+                                                            className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })

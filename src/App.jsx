@@ -19,6 +19,7 @@ import ExpensePage from './pages/ExpensePage';
 import ResetPassword from './pages/ResetPassword';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
+import { DeviceProvider } from './context/DeviceContext';
 
 // Line Stock Pages
 import LineStockDashboard from './pages/LineStock/LineStockDashboard';
@@ -28,43 +29,45 @@ import SettleLineStock from './pages/LineStock/SettleLineStock';
 function App() {
     return (
         <Router>
-            <AuthProvider>
-                <Routes>
-                    <Route path="/login" element={<AdminLogin />} />
-                    <Route path="/reset-password/:token" element={<ResetPassword />} />
-                    <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
-                    <Route path="/admin" element={<PrivateRoute />}>
-                        <Route element={<Layout />}>
-                            <Route path="dashboard" element={<Dashboard />} />
-                            <Route path="billing" element={<BillingSummary />} />
-                            <Route path="monthly-billing" element={<MonthlyBillingSummary />} />
-                            <Route path="stock" element={<StockManagement />} />
-                            <Route path="stock/new" element={<AddNewStock />} />
-                            <Route path="stock/edit/:id" element={<AddNewStock />} />
-                            <Route path="dealers" element={<DealerManagement />} />
-                            <Route path="receivable" element={<DebtReceivable />} />
-                            <Route path="payable" element={<DebtPayable />} />
-                            <Route path="sales" element={<SalesEntry />} />
-                            <Route path="sales/edit/:id" element={<SalesEntry />} />
-                            <Route path="transactions" element={<Transactions />} />
-                            <Route path="chit" element={<ChitFunds />} />
-                            <Route path="chit/past/new" element={<AddPastChitFundEntry />} />
-                            <Route path="chit/past/edit/:id" element={<AddPastChitFundEntry />} />
-                            <Route path="chit/new" element={<AddChitFundEntry />} />
-                            <Route path="chit/edit/:id" element={<AddChitFundEntry />} />
-                            <Route path="expenses" element={<ExpensePage />} />
+            <DeviceProvider>
+                <AuthProvider>
+                    <Routes>
+                        <Route path="/login" element={<AdminLogin />} />
+                        <Route path="/reset-password/:token" element={<ResetPassword />} />
+                        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+                        <Route path="/admin" element={<PrivateRoute />}>
+                            <Route element={<Layout />}>
+                                <Route path="dashboard" element={<Dashboard />} />
+                                <Route path="billing" element={<BillingSummary />} />
+                                <Route path="monthly-billing" element={<MonthlyBillingSummary />} />
+                                <Route path="stock" element={<StockManagement />} />
+                                <Route path="stock/new" element={<AddNewStock />} />
+                                <Route path="stock/edit/:id" element={<AddNewStock />} />
+                                <Route path="dealers" element={<DealerManagement />} />
+                                <Route path="receivable" element={<DebtReceivable />} />
+                                <Route path="payable" element={<DebtPayable />} />
+                                <Route path="sales" element={<SalesEntry />} />
+                                <Route path="sales/edit/:id" element={<SalesEntry />} />
+                                <Route path="transactions" element={<Transactions />} />
+                                <Route path="chit" element={<ChitFunds />} />
+                                <Route path="chit/past/new" element={<AddPastChitFundEntry />} />
+                                <Route path="chit/past/edit/:id" element={<AddPastChitFundEntry />} />
+                                <Route path="chit/new" element={<AddChitFundEntry />} />
+                                <Route path="chit/edit/:id" element={<AddChitFundEntry />} />
+                                <Route path="expenses" element={<ExpensePage />} />
 
-                            {/* Line Stock Routes */}
-                            <Route path="line-stock" element={<LineStockDashboard />} />
-                            <Route path="line-stock/create" element={<CreateLineStock />} />
-                            <Route path="line-stock/settle/:id" element={<SettleLineStock />} />
+                                {/* Line Stock Routes */}
+                                <Route path="line-stock" element={<LineStockDashboard />} />
+                                <Route path="line-stock/create" element={<CreateLineStock />} />
+                                <Route path="line-stock/settle/:id" element={<SettleLineStock />} />
 
-                            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                                <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                            </Route>
                         </Route>
-                    </Route>
-                    <Route path="*" element={<Navigate to="/login" replace />} />
-                </Routes>
-            </AuthProvider>
+                        <Route path="*" element={<Navigate to="/login" replace />} />
+                    </Routes>
+                </AuthProvider>
+            </DeviceProvider>
         </Router>
     );
 }

@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '../axiosConfig';
+import { useDevice } from '../context/DeviceContext';
 
 const getTodayDate = () => new Date().toISOString().split('T')[0];
 const getCurrentTime = () =>
     new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
 const AddPastChitFundEntry = () => {
+    const { isReadOnly } = useDevice();
     const navigate = useNavigate();
     const { id } = useParams();
     const isEdit = Boolean(id);
@@ -176,7 +178,14 @@ const AddPastChitFundEntry = () => {
                     <form onSubmit={onSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="md:col-span-2">
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Customer Name *</label>
-                            <input value={form.customerName} onChange={(e) => handleCustomerNameChange(e.target.value)} list="pastChitCustomerList" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" placeholder="Enter customer name" />
+                            <input
+                                value={form.customerName}
+                                readOnly={isReadOnly}
+                                onChange={(e) => handleCustomerNameChange(e.target.value)}
+                                list={isReadOnly ? "" : "pastChitCustomerList"}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "Enter customer name"}
+                            />
                             <datalist id="pastChitCustomerList">
                                 {customerSuggestions.map((item) => (
                                     <option key={item._id || `${item.customerName}-${item.phoneNumber}`} value={item.customerName}>{item.phoneNumber}</option>
@@ -186,39 +195,95 @@ const AddPastChitFundEntry = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phone Number *</label>
-                            <input value={form.phoneNumber} onChange={(e) => onChange('phoneNumber', e.target.value.replace(/\D/g, '').slice(0, 10))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" placeholder="10-digit mobile number" />
+                            <input
+                                value={form.phoneNumber}
+                                readOnly={isReadOnly}
+                                onChange={(e) => onChange('phoneNumber', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "10-digit mobile number"}
+                            />
                             {errors.phoneNumber && <p className="mt-1 text-sm text-red-600">{errors.phoneNumber}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Date *</label>
-                            <input type="date" value={form.date} onChange={(e) => onChange('date', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" />
+                            <input
+                                type="date"
+                                value={form.date}
+                                readOnly={isReadOnly}
+                                onChange={(e) => onChange('date', e.target.value)}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                            />
                             {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Time</label>
-                            <input value={form.time} onChange={(e) => onChange('time', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" />
+                            <input
+                                value={form.time}
+                                readOnly={isReadOnly}
+                                onChange={(e) => onChange('time', e.target.value)}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Amount *</label>
-                            <input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => onChange('amount', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" placeholder="Enter amount" />
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                readOnly={isReadOnly}
+                                value={form.amount}
+                                onChange={(e) => onChange('amount', e.target.value)}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "Enter amount"}
+                            />
                             {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Gold Rate *</label>
-                            <input type="number" min="0" step="0.01" value={form.goldRateToday} onChange={(e) => onChange('goldRateToday', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" placeholder="Enter gold rate" />
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                readOnly={isReadOnly}
+                                value={form.goldRateToday}
+                                onChange={(e) => onChange('goldRateToday', e.target.value)}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "Enter gold rate"}
+                            />
                             {errors.goldRateToday && <p className="mt-1 text-sm text-red-600">{errors.goldRateToday}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Grams Purchased *</label>
-                            <input type="number" min="0" step="0.001" value={form.gramsPurchased} onChange={(e) => onChange('gramsPurchased', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none" placeholder="Enter grams purchased" />
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                readOnly={isReadOnly}
+                                value={form.gramsPurchased}
+                                onChange={(e) => onChange('gramsPurchased', e.target.value)}
+                                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-300 outline-none ${isReadOnly ? 'bg-gray-100' : ''}`}
+                                placeholder={isReadOnly ? "" : "Enter grams purchased"}
+                            />
                             {errors.gramsPurchased && <p className="mt-1 text-sm text-red-600">{errors.gramsPurchased}</p>}
                         </div>
                         <div className="md:col-span-2 flex items-center justify-end gap-3 pt-3 border-t border-gray-100 mt-2">
-                            <button type="button" onClick={() => navigate('/admin/chit')} className="px-5 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold">Cancel</button>
-                            <button type="submit" disabled={submitting} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold disabled:opacity-60">
-                                <Save size={16} />
-                                {submitting ? 'Saving...' : 'Save Past Entry'}
+                            <button
+                                type="button"
+                                onClick={() => navigate('/admin/chit')}
+                                className="px-5 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold"
+                            >
+                                {isReadOnly ? 'Back to Chit Funds' : 'Cancel'}
                             </button>
+                            {!isReadOnly && (
+                                <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-extrabold disabled:opacity-60"
+                                >
+                                    <Save size={16} />
+                                    {submitting ? 'Saving...' : 'Save Past Entry'}
+                                </button>
+                            )}
                         </div>
                     </form>
                 </div>

@@ -9,7 +9,10 @@ const {
     getLineStockReceivables,
     deletePersonLineStocks
 } = require('../controllers/lineStockController');
+const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
+router.use(protect);
+router.use(blockReadOnly);
 router.post('/create', createLineStock);
 router.post('/manual', createManualLineStock);
 router.delete('/', deletePersonLineStocks);

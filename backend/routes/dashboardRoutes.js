@@ -6,10 +6,13 @@ const {
     getGoldRate,
     updateGoldRate
 } = require('../controllers/dashboardController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
-router.get('/stats', protect, getDashboardStats);
-router.get('/gold-rate', protect, getGoldRate);
-router.post('/gold-rate', protect, updateGoldRate);
+router.use(protect);
+router.use(blockReadOnly);
+
+router.get('/stats', getDashboardStats);
+router.get('/gold-rate', getGoldRate);
+router.post('/gold-rate', updateGoldRate);
 
 module.exports = router;

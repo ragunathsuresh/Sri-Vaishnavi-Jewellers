@@ -1,5 +1,5 @@
 const express = require('express');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 const {
     getSummary,
     getMonthlySummary,
@@ -15,6 +15,7 @@ const {
 const router = express.Router();
 
 router.use(protect);
+router.use(blockReadOnly);
 
 router.get('/summary', getSummary);
 router.get('/monthly-summary', getMonthlySummary);

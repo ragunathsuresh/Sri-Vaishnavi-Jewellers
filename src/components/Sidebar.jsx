@@ -16,19 +16,29 @@ import {
     LogOut
 } from 'lucide-react';
 
+import { useDevice } from '../context/DeviceContext';
+
 const Sidebar = ({ user, logout }) => {
+    const { isReadOnly } = useDevice();
+    const isAdmin = user?.role === 'admin';
+    const effectiveReadOnly = isReadOnly || !isAdmin;
+
     const navItems = [
         { name: 'Home', icon: <Home size={20} />, path: '/admin/dashboard' },
         { name: 'Stock Management', icon: <Box size={20} />, path: '/admin/stock' },
-        { name: 'Line Stock Management', icon: <Truck size={20} />, path: '/admin/line-stock' },
-        { name: 'Dealer Management', icon: <UserPlus size={20} />, path: '/admin/dealers' },
+        ...(effectiveReadOnly ? [] : [
+            { name: 'Line Stock Management', icon: <Truck size={20} />, path: '/admin/line-stock' },
+            { name: 'Dealer Management', icon: <UserPlus size={20} />, path: '/admin/dealers' },
+        ]),
         { name: 'Daily Summary', icon: <FileText size={20} />, path: '/admin/billing' },
         { name: 'Monthly Summary', icon: <FileText size={20} />, path: '/admin/monthly-billing' },
-        { name: 'Customer Sales', icon: <Users size={20} />, path: '/admin/sales' },
-        { name: 'Debt Receivable', icon: <ArrowDownLeft size={20} />, path: '/admin/receivable' },
-        { name: 'Debt Payable', icon: <ArrowUpRight size={20} />, path: '/admin/payable' },
-        { name: 'Chit Funds', icon: <RefreshCcw size={20} />, path: '/admin/chit' },
-        { name: 'Expenses', icon: <Wrench size={20} />, path: '/admin/expenses' },
+        ...(effectiveReadOnly ? [] : [
+            { name: 'Customer Sales', icon: <Users size={20} />, path: '/admin/sales' },
+            { name: 'Debt Receivable', icon: <ArrowDownLeft size={20} />, path: '/admin/receivable' },
+            { name: 'Debt Payable', icon: <ArrowUpRight size={20} />, path: '/admin/payable' },
+            { name: 'Chit Funds', icon: <RefreshCcw size={20} />, path: '/admin/chit' },
+            { name: 'Expenses', icon: <Wrench size={20} />, path: '/admin/expenses' },
+        ]),
         { name: 'Transactions', icon: <Repeat size={20} />, path: '/admin/transactions' }
     ];
 
