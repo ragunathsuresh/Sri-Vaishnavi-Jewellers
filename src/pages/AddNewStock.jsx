@@ -30,6 +30,7 @@ const AddNewStock = () => {
         grossWeight: '',
         netWeight: '',
         purity: '22K (916)',
+        plus: '91.60',
         currentQuantity: '0',
         newQuantity: '1'
     });
@@ -107,6 +108,7 @@ const AddNewStock = () => {
                 grossWeight: '',
                 netWeight: '',
                 purity: '22K (916)',
+                plus: '91.60',
                 currentQuantity: '0',
                 newQuantity: '1'
             });
@@ -143,6 +145,7 @@ const AddNewStock = () => {
                     grossWeight: (existingItem.grossWeight || 0).toString(),
                     netWeight: (existingItem.netWeight || 0).toString(),
                     purity: existingItem.purity || '22K (916)',
+                    plus: (existingItem.plus || 91.60).toString(),
                     currentQuantity: String(existingItem.currentCount ?? 0),
                     newQuantity: '0'
                 });
@@ -168,6 +171,7 @@ const AddNewStock = () => {
                     grossWeight: '',
                     netWeight: '',
                     purity: '22K (916)',
+                    plus: '91.60',
                     currentQuantity: '0',
                     newQuantity: '1'
                 }));
@@ -223,6 +227,7 @@ const AddNewStock = () => {
                 grossWeight: parseFloat(formData.grossWeight),
                 netWeight: parseFloat(formData.netWeight),
                 purity: formData.purity,
+                plus: parseFloat(formData.plus) || 0,
                 currentCount: parseInt(formData.newQuantity) || 0,
                 purchaseCount: parseInt(formData.newQuantity) || 0,
                 time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -429,6 +434,7 @@ const AddNewStock = () => {
                                     readOnly={isReadOnly}
                                     placeholder={isReadOnly ? "" : "Antique Flora"}
                                     className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700`}
+                                    required
                                 />
                             </div>
                             <div className="space-y-2">
@@ -495,6 +501,19 @@ const AddNewStock = () => {
                                     <option value="24K (999)">24K (999)</option>
                                     <option value="18K (750)">18K (750)</option>
                                 </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest pl-1">Touch / Plus (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    name="plus"
+                                    value={formData.plus}
+                                    onChange={handleChange}
+                                    readOnly={isReadOnly}
+                                    placeholder="91.60"
+                                    className={`w-full ${isReadOnly ? 'bg-gray-100' : 'bg-gray-50'} border border-gray-100 px-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all font-bold text-gray-700`}
+                                />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest pl-1">Current Quantity</label>

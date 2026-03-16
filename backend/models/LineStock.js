@@ -10,6 +10,14 @@ const lineStockItemSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    serialNo: {
+        type: String,
+        required: true
+    },
+    weight: {
+        type: Number,
+        required: true
+    },
     issuedQty: {
         type: Number,
         required: true
@@ -69,6 +77,10 @@ const lineStockSchema = new mongoose.Schema({
         sold: { type: Number, default: 0 },
         returned: { type: Number, default: 0 },
         manualValue: { type: Number, default: 0 }
+    },
+    settlementId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'LineStockSettlement'
     }
 }, { timestamps: true });
 

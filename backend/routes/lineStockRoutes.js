@@ -7,7 +7,8 @@ const {
     getLineStockById,
     settleLineStock,
     getLineStockReceivables,
-    deletePersonLineStocks
+    deletePersonLineStocks,
+    getLineStockerDetails
 } = require('../controllers/lineStockController');
 const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
@@ -17,6 +18,7 @@ router.post('/create', createLineStock);
 router.post('/manual', createManualLineStock);
 router.delete('/', deletePersonLineStocks);
 router.get('/receivable', getLineStockReceivables);
+router.get('/details', getLineStockerDetails);
 router.get('/', getLineStocks);
 router.get('/:id', getLineStockById);
 router.put('/settle/:id', settleLineStock);

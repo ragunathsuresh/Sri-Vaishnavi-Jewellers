@@ -32,7 +32,8 @@ const stockSchema = new mongoose.Schema({
     },
     designName: {
         type: String,
-        default: ''
+        required: true,
+        index: true
     },
     hsnCode: {
         type: String,
@@ -80,16 +81,15 @@ const stockSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
-    saleType: {
-        type: String,
-        enum: ['General', 'B2B', 'B2C'],
-        default: 'General'
-    },
     costPrice: {
         type: Number,
         default: 0
     },
     sellingPrice: {
+        type: Number,
+        default: 0
+    },
+    plus: {
         type: Number,
         default: 0
     }

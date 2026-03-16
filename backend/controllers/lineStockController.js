@@ -3,6 +3,9 @@ const Stock = require('../models/Stock');
 const LineStockSale = require('../models/LineStockSale');
 const Dealer = require('../models/Dealer');
 const DealerTransaction = require('../models/DealerTransaction');
+const Sale = require('../models/Sale');
+const LineStockSettlement = require('../models/LineStockSettlement');
+const GoldRate = require('../models/GoldRate');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 
@@ -70,6 +73,8 @@ exports.createLineStock = async (req, res) => {
             processedItems.push({
                 productId: stock._id,
                 productName: stock.itemName,
+                serialNo: stock.serialNo,
+                weight: stock.netWeight || stock.grossWeight,
                 issuedQty: item.issuedQty,
                 totalIssuedValue: itemValue
             });
@@ -219,6 +224,48 @@ exports.createManualLineStock = async (req, res) => {
     }
 };
 
+// @desc    Get Line Stocker Details (current balance etc)
+// @route   GET /api/line-stock/details
+// @access  Private
+exports.getLineStockerDetails = async (req, res) => {
+    try {
+        const { name, phone } = req.query;
+        if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
+
+        const trimmedName = name.trim();
+        // Loose match: any dealer that has this name (case-insensitive)
+        const nameRegex = new RegExp(`^${trimmedName}$`, 'i');
+
+        let query = { name: nameRegex, dealerType: 'Line Stocker' };
+
+        // Try exact name match with dealerType
+        let dealer = await Dealer.findOne(query);
+
+        if (!dealer && phone) {
+            // Try by phone if name lookup fails
+            dealer = await Dealer.findOne({ phoneNumber: phone.trim(), dealerType: 'Line Stocker' });
+        }
+
+        if (!dealer) {
+            return res.json({
+                success: true,
+                name: trimmedName,
+                runningBalance: 0,
+                message: 'No ledger found for this person'
+            });
+        }
+
+        res.json({
+            success: true,
+            name: dealer.name,
+            phoneNumber: dealer.phoneNumber,
+            runningBalance: dealer.runningBalance
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // @desc    Get all Line Stocks with pagination and filters
 // @route   GET /api/line-stock
 // @access  Private
@@ -357,144 +404,184 @@ exports.settleLineStock = async (req, res) => {
 
     try {
         const { id } = req.params;
-        const { items } = req.body; // Array of { productId, soldQty, value }
+        const {
+            issuedTransactions, // [{ productId, soldQty, billNo, customerName, phoneNumber }]
+            receiptTransactions // [{ billNo, type, weight, cashAmount, goldRate }]
+        } = req.body;
 
         const lineStock = await LineStock.findById(id).session(session);
-        if (!lineStock) {
-            throw new Error('Line Stock not found');
-        }
+        if (!lineStock) throw new Error('Line Stock not found');
+        if (lineStock.status === 'SETTLED') throw new Error('Line Stock is already settled');
 
-        const isAlreadySettled = lineStock.status === 'SETTLED' || lineStock.status === 'CLOSED';
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-        let totalSold = Number(lineStock.totals?.sold || 0);
-        let totalReturned = 0;
+        // 1. Process Issued Items (Sales)
+        const processedIssued = [];
+        let totalSoldWeight = 0;
 
-        for (const updateItem of items) {
-            let itemIndex = lineStock.items.findIndex(i => i.productId.toString() === updateItem.productId.toString());
-            let item;
+        for (const item of issuedTransactions) {
+            const lsItem = lineStock.items.find(i => i.productId.toString() === item.productId.toString());
+            if (!lsItem) continue;
 
-            if (itemIndex === -1) {
-                // New item being added manually during settlement
-                const stock = await Stock.findById(updateItem.productId).session(session);
-                if (!stock) throw new Error('Product not found for manual addition');
+            const soldQty = Number(item.soldQty) || 0;
+            const returnedQty = Math.max(0, lsItem.issuedQty - soldQty);
 
-                lineStock.items.push({
-                    productId: stock._id,
-                    productName: stock.itemName,
-                    issuedQty: Number(updateItem.issuedQty) || 0,
-                    soldQty: Number(updateItem.soldQty) || 0,
-                    returnedQty: (Number(updateItem.issuedQty) || 0) - (Number(updateItem.soldQty) || 0),
-                    totalIssuedValue: 0,
-                    totalSoldValue: 0,
-                    totalReturnedValue: 0
-                });
-                itemIndex = lineStock.items.length - 1;
-            }
+            const soldWeight = Number(((lsItem.weight || 0) * soldQty).toFixed(3));
+            totalSoldWeight += soldWeight;
 
-            item = lineStock.items[itemIndex];
-            const enteredValue = Number(updateItem.value);
-            const hasEnteredValue = Number.isFinite(enteredValue) && enteredValue >= 0;
+            // Update LineStock item record
+            lsItem.soldQty = soldQty;
+            lsItem.returnedQty = returnedQty;
+            lsItem.totalSoldValue = soldWeight;
+            lsItem.totalReturnedValue = Number(((lsItem.weight || 0) * returnedQty).toFixed(3));
 
-            if (!isAlreadySettled) {
-                // If it was manually added above, we already set sold/issued. 
-                // If it existed, we update it.
-                if (itemIndex !== -1 && item.issuedQty > 0) {
-                    // Check bounds for existing items
-                    if (updateItem.soldQty > item.issuedQty) {
-                        throw new Error(`Sold quantity cannot exceed issued quantity for ${item.productName}`);
-                    }
-                    item.soldQty = updateItem.soldQty;
-                    item.returnedQty = item.issuedQty - item.soldQty;
-                } else if (itemIndex !== -1 && item.issuedQty === 0) {
-                    // This was a manual record created without products
-                    // We allow setting issued/sold freely here
-                    item.issuedQty = Number(updateItem.issuedQty) || 0;
-                    item.soldQty = Number(updateItem.soldQty) || 0;
-                    item.returnedQty = item.issuedQty - item.soldQty;
-                }
-            }
-
-            const stock = await Stock.findById(item.productId).session(session);
-            if (!isAlreadySettled && !stock) {
-                throw new Error(`Product not found for settlement: ${item.productName}`);
-            }
-
-            if (!isAlreadySettled && stock) {
-                // Add returned qty back to Stock
-                if (item.returnedQty > 0) {
-                    stock.currentCount += item.returnedQty;
+            // Return unsold items to Stock
+            if (returnedQty > 0) {
+                const stock = await Stock.findById(lsItem.productId).session(session);
+                if (stock) {
+                    stock.currentCount += returnedQty;
                     await stock.save({ session });
                 }
-
-                item.totalSoldValue = item.soldQty * (stock.sellingPrice || 0);
-                totalSold += item.totalSoldValue;
             }
 
-            const fallbackReturnedValue = item.returnedQty * (stock?.sellingPrice || 0);
-            item.totalReturnedValue = hasEnteredValue ? enteredValue : fallbackReturnedValue;
-            totalReturned += item.totalReturnedValue;
-
-            // Create Sales entry if soldQty > 0
-            if (!isAlreadySettled && stock && item.soldQty > 0) {
-                const invoiceNumber = await generateInvoiceNumber();
-                const sale = new LineStockSale({
-                    invoiceNumber,
-                    productId: item.productId,
-                    productName: item.productName,
-                    quantity: item.soldQty,
-                    price: stock.sellingPrice || 0,
-                    lineStockId: lineStock._id
-                });
-                await sale.save({ session });
-            }
-        }
-
-        lineStock.totals.sold = totalSold;
-        lineStock.totals.returned = totalReturned;
-        if (!isAlreadySettled) {
-            lineStock.status = 'SETTLED'; // or 'CLOSED' based on logic, prompt says "SETTLED or CLOSED"
-        }
-
-        await lineStock.save({ session });
-
-        // Update dealer running balance: remove the weight of items returned to main stock
-        const returnedGrams = Number(totalReturned) || 0;
-        if (returnedGrams > 0 && lineStock.personName) {
-            const nameRegex = new RegExp(`^${lineStock.personName.trim()}$`, 'i');
-            const dealer = await Dealer.findOne({ name: nameRegex, dealerType: 'Line Stocker' }).session(session);
-            if (dealer) {
-                dealer.runningBalance = Number((dealer.runningBalance - returnedGrams).toFixed(3));
-                await dealer.save({ session });
-
-                // Log Transaction
-                const now = new Date();
-                const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-                const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-                await DealerTransaction.create([{
-                    dealerId: dealer._id,
-                    transactionType: 'Line Stock Settlement',
-                    totalValue: returnedGrams,
-                    balanceAfter: dealer.runningBalance,
+            // Create Customer Sale record if it was a sale
+            let createdSaleId = null;
+            if (soldQty > 0) {
+                const newSale = new Sale({
+                    saleType: 'B2C',
+                    customerDetails: {
+                        name: item.customerName || lineStock.personName,
+                        phone: item.phoneNumber || lineStock.phoneNumber
+                    },
                     date: dateStr,
                     time: timeStr,
-                    items: lineStock.items.map(item => ({
-                        itemName: item.productName,
-                        quantity: item.returnedQty,
-                        netWeight: item.returnedQty > 0 ? returnedGrams : 0
-                    }))
-                }], { session });
+                    issuedItems: [{
+                        billNo: item.billNo,
+                        serialNo: lsItem.serialNo,
+                        itemName: lsItem.productName,
+                        weight: Number((lsItem.weight * soldQty).toFixed(3)),
+                        purchaseCount: soldQty,
+                        sriCost: 0,
+                        sriBill: 0,
+                        plus: 0,
+                        purity: "22K (916)" // Default or fetched from item
+                    }],
+                    status: 'Completed'
+                });
+                await newSale.save({ session });
+                createdSaleId = newSale._id;
             }
+
+            processedIssued.push({
+                billNo: item.billNo,
+                serialNo: lsItem.serialNo,
+                itemName: lsItem.productName,
+                weight: lsItem.weight,
+                quantity: soldQty,
+                quantityReturned: returnedQty,
+                sriCost: 0,
+                sriBill: 0,
+                sriPlus: 0,
+                purityValue: soldWeight,
+                saleId: createdSaleId
+            });
         }
+
+        // 2. Process Receipt Items (Payments)
+        const processedReceipt = [];
+        let totalReceiptPurity = 0;
+
+        for (const rec of receiptTransactions) {
+            let purity = 0;
+            if (rec.type === 'Cash') {
+                const amount = Number(rec.cashAmount) || 0;
+                const rate = Number(rec.goldRate) || 0;
+                purity = rate > 0 ? Number((amount / rate).toFixed(3)) : 0;
+            } else {
+                const weight = Number(rec.weight) || 0;
+                purity = Number(weight.toFixed(3));
+            }
+
+            totalReceiptPurity += purity;
+
+            processedReceipt.push({
+                billNo: rec.billNo,
+                type: rec.type,
+                weight: rec.weight,
+                actualTouch: 0,
+                takenTouch: 0,
+                less: 0,
+                purity: purity,
+                cashAmount: rec.cashAmount,
+                goldRate: rec.goldRate
+            });
+        }
+        // 3. Update Dealer Balance
+        const dealerQuery = { name: new RegExp(`^${lineStock.personName.trim()}$`, 'i'), dealerType: 'Line Stocker' };
+        let dealer = await Dealer.findOne(dealerQuery).session(session);
+        if (!dealer) {
+            dealer = new Dealer({
+                name: lineStock.personName,
+                phoneNumber: lineStock.phoneNumber,
+                runningBalance: 0,
+                balanceType: 'Dealer Owes Us',
+                dealerType: 'Line Stocker'
+            });
+            await dealer.save({ session });
+        }
+
+        const previousBalance = Number(dealer.runningBalance || 0);
+        const totalReturnsWeight = processedIssued.reduce((acc, i) => acc + ((i.weight || 0) * (i.quantityReturned || 0)), 0);
+
+        const finalBalance = Number((previousBalance - totalSoldWeight - totalReceiptPurity).toFixed(3));
+
+        dealer.runningBalance = finalBalance;
+        dealer.balanceType = finalBalance >= 0 ? 'Dealer Owes Us' : 'We Owe Dealer';
+        await dealer.save({ session });
+
+        // 4. Create Settlement Record
+        const settlement = new LineStockSettlement({
+            lineStockId: lineStock._id,
+            personName: lineStock.personName,
+            phoneNumber: lineStock.phoneNumber,
+            previousBalance,
+            issuedBalance: totalSoldWeight,
+            receiptBalance: totalReceiptPurity,
+            finalBalance,
+            issuedTransactions: processedIssued,
+            receiptTransactions: processedReceipt
+        });
+        await settlement.save({ session });
+
+        // 5. Finalize LineStock Record
+        lineStock.status = 'SETTLED';
+        lineStock.settlementId = settlement._id;
+        lineStock.totals.sold = totalSoldWeight;
+
+        lineStock.totals.returned = Number(totalReturnsWeight.toFixed(3));
+        await lineStock.save({ session });
+
+        // 6. Log Dealer Transaction
+        await DealerTransaction.create([{
+            dealerId: dealer._id,
+            transactionType: 'Line Stock Settlement',
+            totalValue: Number((totalSoldWeight + totalReceiptPurity).toFixed(3)),
+            balanceAfter: dealer.runningBalance,
+            date: dateStr,
+            time: timeStr,
+            notes: `Settlement for ${lineStock.lineNumber}. Sold: ${totalSoldWeight}g, Returned: ${Number(totalReturnsWeight.toFixed(3))}g, Receipt: ${totalReceiptPurity}g`
+        }], { session });
 
         await session.commitTransaction();
         session.endSession();
 
-        res.json(lineStock);
+        res.json({ success: true, settlementId: settlement._id, finalBalance });
     } catch (error) {
-        if (session.inTransaction()) {
-            await session.abortTransaction();
-        }
+        if (session.inTransaction()) await session.abortTransaction();
         session.endSession();
+        console.error('Settlement Error:', error);
         res.status(400).json({ message: error.message });
     }
 };

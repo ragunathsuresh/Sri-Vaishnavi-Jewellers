@@ -286,8 +286,9 @@ const SalesEntry = () => {
                     serialNo: stock.serialNo,
                     itemName: stock.itemName,
                     jewelleryType: stock.jewelleryType,
-                    purity: stock.purity,
+                    plus: stock.plus || '0',
                     weight: stock.netWeight || stock.grossWeight,
+                    purity: ((stock.netWeight || stock.grossWeight) * ((stock.plus || 0) / 100)).toFixed(3),
                     currentCount: stock.currentCount ?? stock.count ?? 0,
                     purchaseCount: 1, // Reset to 1 for new selection
                     suggestions: [],
@@ -331,8 +332,9 @@ const SalesEntry = () => {
             serialNo: stock.serialNo,
             itemName: stock.itemName,
             jewelleryType: stock.jewelleryType,
-            purity: stock.purity,
+            plus: stock.plus || '0',
             weight: stock.netWeight || stock.grossWeight,
+            purity: ((stock.netWeight || stock.grossWeight) * ((stock.plus || 0) / 100)).toFixed(3),
             currentCount: stock.currentCount ?? stock.count ?? 0,
             purchaseCount: 1,
             suggestions: []
@@ -729,7 +731,7 @@ const SalesEntry = () => {
                                 <div className="space-y-2 lg:col-span-2">
                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest pl-1">PURITY (W * P)</label>
                                     <div className="py-3 px-4 bg-gray-100 rounded-xl font-black text-gray-900 text-center">
-                                        {item.purity}
+                                        {typeof item.purity === 'number' ? item.purity.toFixed(3) : item.purity}
                                     </div>
                                 </div>
 

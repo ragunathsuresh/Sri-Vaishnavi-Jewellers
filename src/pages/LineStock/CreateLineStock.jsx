@@ -43,34 +43,25 @@ const CreateLineStock = () => {
 
     const fetchSavedPeople = async () => {
         try {
-            const [lineStockData, dealersRes] = await Promise.all([
-                lineStockService.getAll({ limit: 1000 }),
-                api.get('/dealers?type=Line Stocker')
-            ]);
-            const lineStocks = lineStockData?.lineStocks || [];
+            const dealersRes = await api.get('/dealers?type=Line Stocker');
             const dealers = dealersRes.data?.data || [];
 
-            // Build a balance map keyed by lowercased name
+            // Build a balance map and people list
             const balMap = {};
+            const people = [];
             dealers.forEach((d) => {
                 const key = (d.name || '').trim().toLowerCase();
-                if (key) balMap[key] = d.runningBalance ?? 0;
-            });
-            setDealerBalanceMap(balMap);
-
-            const map = new Map();
-            lineStocks.forEach((record) => {
-                const key = `${(record.personName || '').trim().toLowerCase()}::${(record.phoneNumber || '').trim()}`;
-                if (!key || key === '::') return;
-                if (!map.has(key)) {
-                    map.set(key, {
-                        personName: record.personName || '',
-                        phoneNumber: record.phoneNumber || ''
+                if (key) {
+                    balMap[key] = d.runningBalance ?? 0;
+                    people.push({
+                        personName: d.name,
+                        phoneNumber: d.phoneNumber || ''
                     });
                 }
             });
 
-            setSavedPeople(Array.from(map.values()));
+            setDealerBalanceMap(balMap);
+            setSavedPeople(people);
         } catch (error) {
             console.error('Error fetching saved person details:', error);
         }

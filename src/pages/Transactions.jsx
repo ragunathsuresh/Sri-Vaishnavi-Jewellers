@@ -502,7 +502,11 @@ const Transactions = () => {
                                     <td className="px-3 py-4 text-[10px] font-black text-gray-900 bg-emerald-50/5 whitespace-nowrap">{(txn.issuedItems?.[idx]?.netWeight || txn.issuedItems?.[idx]?.weight) ? `${txn.issuedItems[idx].netWeight || txn.issuedItems[idx].weight}g` : '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-gray-400 bg-emerald-50/5 whitespace-nowrap text-center">{txn.issuedItems?.[idx]?.currentCount || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-black text-emerald-600 bg-emerald-50/5 whitespace-nowrap text-center">{txn.issuedItems?.[idx]?.purchaseCount || '-'}</td>
-                                    <td className="px-3 py-4 text-[10px] font-bold text-gray-600 bg-emerald-50/5 whitespace-nowrap">{txn.issuedItems?.[idx]?.purity || '-'}</td>
+                                    <td className="px-3 py-4 text-[10px] font-bold text-gray-600 bg-emerald-50/5 whitespace-nowrap">
+                                        {typeof txn.issuedItems?.[idx]?.purity === 'number'
+                                            ? txn.issuedItems[idx].purity.toFixed(3)
+                                            : (txn.issuedItems?.[idx]?.purity || '-')}
+                                    </td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-gray-400 bg-emerald-50/5 whitespace-nowrap">₹{txn.issuedItems?.[idx]?.sriCost?.toLocaleString() || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-black text-emerald-700 bg-emerald-50/10 whitespace-nowrap">₹{txn.issuedItems?.[idx]?.sriBill?.toLocaleString() || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-orange-600 bg-emerald-50/5 border-r border-gray-200 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] whitespace-nowrap">{txn.issuedItems?.[idx]?.plus ? `+${txn.issuedItems[idx].plus}` : '-'}</td>
@@ -515,7 +519,11 @@ const Transactions = () => {
                                     <td className="px-3 py-4 text-[10px] font-bold text-gray-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.less || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-green-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.actualTouch || '-'}</td>
                                     <td className="px-3 py-4 text-[10px] font-bold text-emerald-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.takenTouch || '-'}</td>
-                                    <td className="px-3 py-4 text-[10px] font-bold text-gray-600 bg-orange-50/5 whitespace-nowrap">{txn.receiptItems?.[idx]?.purity || '-'}</td>
+                                    <td className="px-3 py-4 text-[10px] font-bold text-gray-600 bg-orange-50/5 whitespace-nowrap">
+                                        {typeof txn.receiptItems?.[idx]?.purity === 'number'
+                                            ? txn.receiptItems[idx].purity.toFixed(3)
+                                            : (txn.receiptItems?.[idx]?.purity || '-')}
+                                    </td>
                                     {idx === 0 && !isReadOnly && (
                                         <td className="px-4 py-4 text-center border-l border-gray-100" rowSpan={rowCount}>
                                             <div className="flex items-center justify-center gap-2">

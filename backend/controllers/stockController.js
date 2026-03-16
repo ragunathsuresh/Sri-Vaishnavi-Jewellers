@@ -192,6 +192,57 @@ const deleteStock = async (req, res) => {
     }
 };
 
+// @desc    Get all distinct design names
+// @route   GET /api/stock/designs
+// @access  Private
+const getDistinctDesigns = async (req, res) => {
+    try {
+        const designs = await Stock.distinct('designName');
+        res.status(200).json({ success: true, data: designs });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get stock grouped by design
+// @route   GET /api/stock/by-design
+// @access  Private
+const getStocksByDesign = async (req, res) => {
+    try {
+        const { designName, jewelleryType } = req.query;
+        let matchStage = {};
+        if (designName && designName !== 'All') {
+            matchStage.designName = designName;
+        }
+        if (jewelleryType && jewelleryType !== 'All') {
+            matchStage.jewelleryType = jewelleryType;
+        }
+
+        const aggregation = [
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: { $ifNull: ["$designName", "Uncategorized"] },
+                    items: { $push: "$$ROOT" },
+                    totalCount: { $sum: { $ifNull: ["$currentCount", 0] } },
+                    totalWeight: { $sum: { $multiply: [{ $ifNull: ["$netWeight", 0] }, { $ifNull: ["$currentCount", 0] }] } },
+                    itemRecordCount: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ];
+
+        const results = await Stock.aggregate(aggregation);
+
+        res.status(200).json({
+            success: true,
+            data: results
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getStocks,
     addStock,
@@ -200,5 +251,7 @@ module.exports = {
     getStockBySerialNo,
     searchStock,
     getStockHistoryBySerialNo,
-    deleteStock
+    deleteStock,
+    getDistinctDesigns,
+    getStocksByDesign
 };

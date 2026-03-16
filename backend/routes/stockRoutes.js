@@ -9,7 +9,9 @@ const {
     getStockBySerialNo,
     searchStock,
     getStockHistoryBySerialNo,
-    deleteStock
+    deleteStock,
+    getDistinctDesigns,
+    getStocksByDesign
 } = require('../controllers/stockController');
 const { protect, blockReadOnly } = require('../middlewares/authMiddleware');
 
@@ -17,6 +19,8 @@ router.use(protect);
 router.use(blockReadOnly);
 
 router.get('/', getStocks);
+router.get('/designs', getDistinctDesigns);
+router.get('/by-design', getStocksByDesign);
 router.get('/search', searchStock);
 router.post('/', addStock);
 router.get('/serial/:serialNo', getStockBySerialNo);

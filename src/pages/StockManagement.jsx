@@ -4,11 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../axiosConfig';
 import {
     ChevronRight,
-    Download,
     Plus,
     Search,
     Filter,
-    ExternalLink,
     Box,
     Edit2,
     Trash2,
@@ -19,63 +17,46 @@ import {
 import { useDevice } from '../context/DeviceContext';
 
 const StockManagement = () => {
-    const { isReadOnly, isMobile } = useDevice();
+    const { isReadOnly } = useDevice();
     const navigate = useNavigate();
-    const [stocks, setStocks] = useState([]);
-    const [stats, setStats] = useState({ totalJewels: '0 Types', totalCount: 0, totalWeight: '0.00' });
+    const [groupedStocks, setGroupedStocks] = useState([]);
+    const [designs, setDesigns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [startSerial, setStartSerial] = useState('');
-    const [endSerial, setEndSerial] = useState('');
-    const [activePage, setActivePage] = useState(1);
-    const [zeroPage, setZeroPage] = useState(1);
-    const itemsPerPage = 10;
+    const [filterDesign, setFilterDesign] = useState('All');
+    const [filterType, setFilterType] = useState('All');
+    const [showDesignFilter, setShowDesignFilter] = useState(false);
 
     useEffect(() => {
-        fetchStocks();
-    }, []);
+        fetchDesigns();
+        fetchGroupedStocks();
+    }, [filterDesign, filterType]);
 
-    const fetchStocks = async () => {
+    const fetchDesigns = async () => {
         try {
-            const { data } = await api.get('/stock');
-            setStocks(data.data);
-            setStats(data.stats);
-            setLoading(false);
+            const { data } = await api.get('/stock/designs');
+            setDesigns(data.data || []);
         } catch (error) {
-            console.error('Error fetching stocks:', error);
-            setLoading(false);
+            console.error('Error fetching designs:', error);
         }
     };
 
-    const fileInputRef = React.useRef(null);
-
-    const handleExport = () => {
-        const headers = ["Serial No", "Origin", "Date", "Item Name", "Jewel Name", "Type", "Purity", "Category", "Design", "Supplier", "Count", "Weight"];
-        const rows = filteredStocks.map(item => [
-            item.serialNo,
-            item.saleType || 'General',
-            new Date(item.date).toISOString().split('T')[0],
-            `"${item.itemName}"`,
-            `"${item.jewelName || item.designName || ''}"`,
-            item.jewelleryType,
-            item.purity,
-            item.category,
-            `"${item.designName}"`,
-            `"${item.supplierName}"`,
-            item.currentCount ?? item.count,
-            item.netWeight
-        ]);
-
-        const csvContent = headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `stock_report_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const fetchGroupedStocks = async () => {
+        setLoading(true);
+        try {
+            const { data } = await api.get('/stock/by-design', {
+                params: {
+                    designName: filterDesign !== 'All' ? filterDesign : undefined,
+                    jewelleryType: filterType !== 'All' ? filterType : undefined
+                }
+            });
+            setGroupedStocks(data.data || []);
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching grouped stocks:', error);
+            setLoading(false);
+        }
     };
 
     const handleDownloadPdf = async () => {
@@ -84,7 +65,7 @@ const StockManagement = () => {
             const response = await api.get('/reports/stock/pdf', {
                 params: {
                     jewelleryType: filterType,
-                    saleType: originFilter
+                    designName: filterDesign
                 },
                 responseType: 'blob'
             });
@@ -104,162 +85,67 @@ const StockManagement = () => {
         }
     };
 
-    const handleImportClick = () => {
-        fileInputRef.current?.click();
-    };
-
-    const handleFileChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        alert("File selected: " + file.name + ". Parsing and bulk upload logic would go here.");
-        // Reset input
-        e.target.value = '';
-    };
-
-    const [filterType, setFilterType] = useState('All');
-    const [originFilter, setOriginFilter] = useState('All');
-
-    const handleAction = (type) => {
-        if (type === 'Export') {
-            handleExport();
-        } else if (type === 'Import CSV') {
-            handleImportClick();
-        } else {
-            alert(`${type} functionality coming soon!`);
-        }
-    };
-
     const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this item?')) return;
         try {
             await api.delete(`/stock/${id}`);
-            fetchStocks();
+            fetchGroupedStocks();
         } catch (error) {
             console.error('Error deleting stock:', error);
             alert('Failed to delete stock item.');
         }
     };
 
-    const filteredStocks = stocks.filter(item => {
-        const matchesSearch = (
+    // Calculate Global Stats from grouped data
+    const globalStats = (groupedStocks || []).reduce((acc, group) => {
+        acc.totalCount += (group.totalCount || 0);
+        acc.totalWeight += (group.totalWeight || 0);
+        acc.totalItems += (group.itemRecordCount || 0);
+        return acc;
+    }, { totalCount: 0, totalWeight: 0, totalItems: 0 });
+
+    const StockTable = ({ group }) => {
+        const filteredItems = group.items.filter(item =>
             (item.serialNo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-            (item.itemName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-            (item.jewelName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-            (item.designName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+            (item.itemName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
         );
 
-        const matchesType = filterType === 'All' || item.jewelleryType === filterType;
-        const matchesOrigin = originFilter === 'All' || (item.saleType || 'General') === originFilter;
+        if (filteredItems.length === 0) return null;
 
-        let matchesRange = true;
-        if (startSerial || endSerial) {
-            // Extract numeric part from serialNo (e.g., "SV101" -> 101)
-            const itemNum = parseInt(item.serialNo?.replace(/\D/g, ''));
-            const startNum = parseInt(startSerial?.replace(/\D/g, ''));
-            const endNum = parseInt(endSerial?.replace(/\D/g, ''));
-
-            if (!isNaN(itemNum)) {
-                if (!isNaN(startNum) && itemNum < startNum) matchesRange = false;
-                if (!isNaN(endNum) && itemNum > endNum) matchesRange = false;
-            }
-        }
-
-        return matchesSearch && matchesType && matchesOrigin && matchesRange;
-    });
-
-    // Reset pages when search or filters change
-    useEffect(() => {
-        setActivePage(1);
-        setZeroPage(1);
-    }, [searchTerm, filterType, originFilter, startSerial, endSerial]);
-
-    const inStock = filteredStocks.filter(item => (Number(item.currentCount ?? item.count) || 0) > 0);
-    const zeroStock = filteredStocks.filter(item => (Number(item.currentCount ?? item.count) || 0) === 0);
-
-    const paginatedActive = inStock.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage);
-    const paginatedZero = zeroStock.slice((zeroPage - 1) * itemsPerPage, zeroPage * itemsPerPage);
-
-    const activeTotalPages = Math.ceil(inStock.length / itemsPerPage);
-    const zeroTotalPages = Math.ceil(zeroStock.length / itemsPerPage);
-
-    // Calculate dynamic stats — active items only (excludes sold/zero stock)
-    const dynamicStats = {
-        totalJewels: `${inStock.length} Items`,
-        totalCount: inStock.reduce((acc, curr) => acc + (Number(curr.currentCount ?? curr.count) || 0), 0),
-        totalWeight: inStock.reduce((acc, curr) => acc + ((Number(curr.netWeight) || 0) * (Number(curr.currentCount ?? curr.count) || 1)), 0).toFixed(3)
-    };
-    const StockTable = ({ data, displayedData, title, emptyMessage, currentPage, totalPages, setCurrentPage }) => (
-        <div className="mb-12">
-            <div className="flex items-center gap-3 mb-6">
-                <div className={`w-1.5 h-6 rounded-full ${title.includes('Active') ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                <div className="flex-1 flex items-center justify-between">
-                    <h2 className="text-xl font-black text-gray-900 tracking-tight">{title} <span className="text-sm font-bold text-gray-400 ml-2">({data.length})</span></h2>
-                    {totalPages > 1 && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-gray-400 mr-2">Page {currentPage} of {totalPages}</span>
-                            <button
-                                disabled={currentPage === 1}
-                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                className="p-1.5 bg-white border border-gray-100 rounded-lg text-gray-400 hover:text-gray-900 disabled:opacity-30 transition-all font-black"
-                            >
-                                {'<'}
-                            </button>
-                            <button
-                                disabled={currentPage === totalPages}
-                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                className="p-1.5 bg-white border border-gray-100 rounded-lg text-gray-400 hover:text-gray-900 disabled:opacity-30 transition-all font-black"
-                            >
-                                {'>'}
-                            </button>
-                        </div>
-                    )}
+        return (
+            <div className="mb-12">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-1.5 h-6 rounded-full bg-emerald-500"></div>
+                    <div className="flex-1 flex items-center justify-between">
+                        <h2 className="text-xl font-black text-gray-900 tracking-tight">Design: {group._id} <span className="text-sm font-bold text-gray-400 ml-2">({filteredItems.length} Records)</span></h2>
+                    </div>
                 </div>
-            </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto custom-scrollbar">
-                <table className="w-full text-left border-collapse min-w-[1400px]">
-                    <thead>
-                        <tr className="bg-gray-50 border-b border-gray-100">
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">S.No</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Origin</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Time</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Item Details</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Item Number</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Category</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Supplier</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Jewel Name</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Count</th>
-                            <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Weight</th>
-                            {!isReadOnly && <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {loading ? (
-                            <tr>
-                                <td colSpan="12" className="px-6 py-20 text-center text-gray-400 font-bold italic">Loading stock records...</td>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[1200px]">
+                        <thead>
+                            <tr className="bg-gray-50 border-b border-gray-100">
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">S.No</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Item Number</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Item Name</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Type</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Category</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Count</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Weight</th>
+                                {!isReadOnly && <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>}
                             </tr>
-                        ) : displayedData.length === 0 ? (
-                            <tr>
-                                <td colSpan="12" className="px-6 py-20 text-center text-gray-400 font-bold italic">{emptyMessage}</td>
-                            </tr>
-                        ) : (
-                            displayedData.map((item, index) => (
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {filteredItems.map((item, index) => (
                                 <tr key={item._id} className="hover:bg-gray-50/50 transition-colors group">
                                     <td className="px-6 py-5 text-center">
-                                        <span className="text-sm font-black text-gray-400 group-hover:text-yellow-600 transition-colors tracking-tight">{(currentPage - 1) * 10 + index + 1}</span>
-                                    </td>
-                                    <td className="px-6 py-5 text-center">
-                                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${item.saleType === 'B2B' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                                            item.saleType === 'B2C' ? 'bg-yellow-50 text-yellow-600 border border-yellow-100' :
-                                                'bg-gray-50 text-gray-400 border border-gray-100'
-                                            }`}>
-                                            {item.saleType || 'General'}
-                                        </span>
+                                        <span className="text-sm font-black text-gray-400 group-hover:text-yellow-600 transition-colors tracking-tight">{index + 1}</span>
                                     </td>
                                     <td className="px-6 py-5">
                                         <span className="text-sm font-bold text-gray-600 font-mono text-[13px]">{new Date(item.date).toISOString().split('T')[0]}</span>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <span className="text-sm font-bold text-gray-400 uppercase tracking-tighter text-[11px]">{item.time}</span>
+                                        <span className="text-sm font-bold text-gray-600 uppercase tracking-wide font-mono">{item.serialNo}</span>
                                     </td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
@@ -272,25 +158,22 @@ const StockManagement = () => {
                                             </div>
                                             <div>
                                                 <p className="text-sm font-black text-gray-900 leading-tight mb-0.5 whitespace-nowrap">{item.itemName}</p>
-                                                <p className="text-[11px] font-bold text-yellow-600 uppercase tracking-wider">{item.jewelleryType} | {item.purity}</p>
+                                                <p className="text-[11px] font-bold text-yellow-600 uppercase tracking-wider">
+                                                    {typeof item.purity === 'number' ? `${item.purity.toFixed(3)}g Pure` : item.purity}
+                                                    {item.plus ? ` (${item.plus}%)` : ''}
+                                                </p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <span className="text-sm font-bold text-gray-600 uppercase tracking-wide font-mono">{item.serialNo}</span>
+                                        <span className="text-xs font-bold text-gray-500 uppercase">{item.jewelleryType}</span>
                                     </td>
                                     <td className="px-6 py-5 text-center">
                                         <span className="px-2 py-1 bg-gray-50 text-gray-500 text-[10px] font-bold rounded border border-gray-100 uppercase tracking-tight">{item.category}</span>
                                     </td>
-                                    <td className="px-6 py-5">
-                                        <span className="text-xs font-bold text-gray-400 truncate max-w-[100px] block" title={item.supplierName}>{item.supplierName}</span>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className="text-xs font-bold text-gray-500">{item.jewelName || item.designName || '-'}</span>
-                                    </td>
                                     <td className="px-6 py-5 text-center">
-                                        <span className={`px-3 py-1.5 rounded-lg border text-sm font-black transition-colors ${Number(item.currentCount ?? item.count) === 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-gray-50 text-gray-900 border-gray-100 group-hover:bg-white'}`}>
-                                            {item.currentCount ?? item.count}
+                                        <span className="px-3 py-1.5 rounded-lg border text-sm font-black bg-gray-50 text-gray-900 border-gray-100 group-hover:bg-white transition-colors">
+                                            {item.currentCount || 0}
                                         </span>
                                     </td>
                                     <td className="px-6 py-5 text-center">
@@ -317,13 +200,32 @@ const StockManagement = () => {
                                         </td>
                                     )}
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ))}
+                        </tbody>
+                        <tfoot className="bg-gray-50/80 border-t border-gray-100 font-black">
+                            <tr>
+                                <td colSpan="5" className="px-6 py-4 text-sm text-gray-900 border-r border-gray-100">DESIGN TOTAL ({group._id})</td>
+                                <td className="px-6 py-4 text-center text-sm text-gray-600">
+                                    <span className="text-[10px] text-gray-400 block uppercase mb-0.5">Records</span>
+                                    {group.itemRecordCount}
+                                </td>
+                                <td className="px-6 py-4 text-center text-sm text-gray-900">
+                                    <span className="text-[10px] text-gray-400 block uppercase mb-0.5">Quantity</span>
+                                    {group.totalCount}
+                                </td>
+                                <td className="px-6 py-4 text-center text-sm text-gray-900">
+                                    <span className="text-[10px] text-gray-400 block uppercase mb-0.5">Net Weight</span>
+                                    <span className="text-base font-black">{group.totalWeight.toFixed(3)}</span>
+                                    <span className="text-[10px] text-gray-400 ml-1 uppercase">gm</span>
+                                </td>
+                                {!isReadOnly && <td></td>}
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="p-8">
@@ -359,23 +261,16 @@ const StockManagement = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-black text-gray-900 mb-1">Stock Management</h1>
-                    <p className="text-gray-400 text-sm font-medium">Manage your jewelry inventory, track stock levels, and valuations.</p>
+                    <p className="text-gray-400 text-sm font-medium">Categorized inventory design-wise with real-time totals.</p>
                 </div>
                 {!isReadOnly && (
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => handleAction('Import CSV')}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white border border-gray-100 px-5 py-2.5 rounded-xl font-bold text-gray-600 shadow-sm hover:shadow-md transition-all active:scale-95"
-                        >
-                            <Plus size={18} />
-                            Import
-                        </button>
                         <button
                             onClick={() => navigate('/admin/stock/new')}
                             className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-yellow-400 px-5 py-2.5 rounded-xl font-black text-gray-900 shadow-md hover:shadow-lg transition-all active:scale-95"
                         >
                             <Plus size={18} />
-                            Add
+                            Add Stock
                         </button>
                     </div>
                 )}
@@ -387,66 +282,60 @@ const StockManagement = () => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-yellow-500 transition-colors" size={20} />
                     <input
                         type="text"
-                        placeholder="Search by Name, Serial or Design..."
+                        placeholder="Search by Name or Serial Number..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full bg-white border border-gray-100 pl-12 pr-4 py-3.5 rounded-xl outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all text-sm font-medium"
                     />
                 </div>
+
+                {/* Design Filter Button */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowDesignFilter(!showDesignFilter)}
+                        className={`flex items-center gap-2 bg-white border ${filterDesign !== 'All' ? 'border-yellow-400 text-yellow-600' : 'border-gray-100 text-gray-600'} px-5 py-3.5 rounded-xl font-bold text-sm shadow-sm hover:bg-gray-50 transition-all active:scale-95`}
+                    >
+                        <Filter size={18} />
+                        {filterDesign === 'All' ? 'Design' : filterDesign}
+                    </button>
+                    {showDesignFilter && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowDesignFilter(false)}></div>
+                            <div className="absolute top-14 left-0 w-64 bg-white border border-gray-100 rounded-2xl shadow-2xl z-20 py-2 max-h-80 overflow-y-auto custom-scrollbar">
+                                <button
+                                    onClick={() => { setFilterDesign('All'); setShowDesignFilter(false); }}
+                                    className={`w-full text-left px-5 py-2.5 text-sm font-bold hover:bg-yellow-50 ${filterDesign === 'All' ? 'text-yellow-600 bg-yellow-50/50' : 'text-gray-600'}`}
+                                >
+                                    All Designs
+                                </button>
+                                {designs.map(design => (
+                                    <button
+                                        key={design}
+                                        onClick={() => { setFilterDesign(design); setShowDesignFilter(false); }}
+                                        className={`w-full text-left px-5 py-2.5 text-sm font-bold hover:bg-yellow-50 ${filterDesign === design ? 'text-yellow-600 bg-yellow-50/50' : 'text-gray-600'}`}
+                                    >
+                                        {design}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
                 <div className="flex-1 md:flex-none relative">
-                    <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <select
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value)}
-                        className="w-full bg-white border border-gray-100 pl-12 pr-8 py-3.5 rounded-xl font-bold text-xs md:text-sm text-gray-600 outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
+                        className="w-full bg-white border border-gray-100 px-6 py-3.5 rounded-xl font-bold text-xs md:text-sm text-gray-600 outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                     >
-                        <option value="All">All Types</option>
+                        <option value="All">All Metal Types</option>
                         <option value="Gold">Gold</option>
                         <option value="Silver">Silver</option>
                         <option value="Platinum">Platinum</option>
                         <option value="Diamond">Diamond</option>
                     </select>
                 </div>
-                <div className="flex-1 md:flex-none relative">
-                    <Box className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <select
-                        value={originFilter}
-                        onChange={(e) => setOriginFilter(e.target.value)}
-                        className="w-full bg-white border border-gray-100 pl-12 pr-8 py-3.5 rounded-xl font-bold text-xs md:text-sm text-gray-600 outline-none focus:border-yellow-200 focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
-                    >
-                        <option value="All">All Origins</option>
-                        <option value="General">General Stock</option>
-                        <option value="B2B">B2B Returns</option>
-                        <option value="B2C">B2C Returns</option>
-                    </select>
-                </div>
-                {/* Serial Range Filter */}
-                <div className="w-full md:w-auto flex items-center gap-2 bg-white border border-gray-100 px-4 py-3 rounded-xl shadow-sm">
-                    <Filter className="text-gray-400" size={16} />
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-1">Range:</span>
-                    <input
-                        type="text"
-                        placeholder="From"
-                        value={startSerial}
-                        onChange={(e) => setStartSerial(e.target.value)}
-                        className="w-16 bg-transparent border-b border-gray-200 outline-none focus:border-yellow-400 text-xs font-bold text-gray-700 text-center pb-0.5"
-                    />
-                    <span className="text-gray-300 font-bold">-</span>
-                    <input
-                        type="text"
-                        placeholder="To"
-                        value={endSerial}
-                        onChange={(e) => setEndSerial(e.target.value)}
-                        className="w-16 bg-transparent border-b border-gray-200 outline-none focus:border-yellow-400 text-xs font-bold text-gray-700 text-center pb-0.5"
-                    />
-                </div>
-                <button
-                    onClick={() => handleExport()}
-                    className="w-full md:w-auto flex items-center justify-center gap-2 bg-white border border-gray-100 px-6 py-3.5 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
-                >
-                    <ExternalLink size={18} />
-                    CSV
-                </button>
+
                 <button
                     onClick={() => handleDownloadPdf()}
                     disabled={exportingPdf}
@@ -458,40 +347,36 @@ const StockManagement = () => {
             </div>
 
             {/* Sections */}
-            <StockTable
-                data={inStock}
-                displayedData={paginatedActive}
-                title="Active Stock"
-                emptyMessage="No active stock found matching your search."
-                currentPage={activePage}
-                setCurrentPage={setActivePage}
-                totalPages={activeTotalPages}
-            />
-
-            <StockTable
-                data={zeroStock}
-                displayedData={paginatedZero}
-                title="Sold Out / Zero Stock"
-                emptyMessage="No sold out items found matching your search."
-                currentPage={zeroPage}
-                setCurrentPage={setZeroPage}
-                totalPages={zeroTotalPages}
-            />
+            {loading ? (
+                <div className="py-20 text-center">
+                    <Loader2 className="animate-spin mx-auto text-yellow-400 mb-4" size={40} />
+                    <p className="text-gray-400 font-bold italic">Loading grouped stock data...</p>
+                </div>
+            ) : groupedStocks.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-100 py-20 text-center">
+                    <Box className="mx-auto text-gray-100 mb-4" size={60} />
+                    <p className="text-gray-400 font-bold italic">No stock found matching your criteria.</p>
+                </div>
+            ) : (
+                groupedStocks.map(group => (
+                    <StockTable key={group._id} group={group} />
+                ))
+            )}
 
             {/* Footer Stats matched to design */}
             <div className="grid grid-cols-1 md:grid-cols-4 bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm divide-x divide-gray-100">
                 <div className="p-6 bg-gray-50/50">
-                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Jewels</p>
-                    <p className="text-3xl font-black text-gray-900 leading-none">{dynamicStats.totalJewels}</p>
+                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Unique Items</p>
+                    <p className="text-3xl font-black text-gray-900 leading-none">{globalStats.totalItems}</p>
                 </div>
                 <div className="p-6 text-center">
-                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Count</p>
-                    <p className="text-3xl font-black text-gray-900 leading-none">{dynamicStats.totalCount}</p>
+                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Quantity</p>
+                    <p className="text-3xl font-black text-gray-900 leading-none">{globalStats.totalCount}</p>
                 </div>
                 <div className="p-6 text-center">
-                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Weight</p>
+                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Net Weight</p>
                     <div className="flex items-baseline justify-center gap-1.5 leading-none">
-                        <span className="text-3xl font-black text-gray-900">{dynamicStats.totalWeight}</span>
+                        <span className="text-3xl font-black text-gray-900">{globalStats.totalWeight.toFixed(3)}</span>
                         <span className="text-lg font-bold text-gray-400">g</span>
                     </div>
                 </div>
@@ -500,18 +385,10 @@ const StockManagement = () => {
                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center text-white backdrop-blur-md">
                             <Box size={24} />
                         </div>
-                        <p className="text-sm font-black text-gray-900 uppercase tracking-tight">System Stock Verified</p>
+                        <p className="text-sm font-black text-gray-900 uppercase tracking-tight">Consolidated View</p>
                     </div>
                 </div>
             </div>
-            {/* Hidden File Input for Import */}
-            <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".csv"
-                className="hidden"
-            />
         </div>
     );
 };

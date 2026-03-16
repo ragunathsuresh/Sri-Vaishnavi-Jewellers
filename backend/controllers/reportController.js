@@ -736,10 +736,10 @@ const serveSharedMonthlyPdf = async (req, res) => {
 
 const downloadStockPdf = async (req, res) => {
     try {
-        const { jewelleryType, saleType } = req.query;
+        const { jewelleryType, designName } = req.query;
         let filters = {};
         if (jewelleryType && jewelleryType !== 'All') filters.jewelleryType = jewelleryType;
-        if (saleType && saleType !== 'All') filters.saleType = saleType;
+        if (designName && designName !== 'All') filters.designName = designName;
 
         const stocks = await Stock.find(filters).sort({ serialNo: 1 });
         const generatedAt = new Date();
@@ -771,7 +771,8 @@ const downloadStockPdf = async (req, res) => {
         renderer.drawTable({
             headers: ['Serial No', 'Item Name', 'Type', 'Category', 'Purity', 'Count', 'Weight'],
             rows: stocks.map(s => [
-                s.serialNo || '-', s.itemName || '-', s.jewelleryType || '-', s.category || '-', s.purity || '-',
+                s.serialNo || '-', s.itemName || '-', s.jewelleryType || '-', s.category || '-',
+                typeof s.purity === 'number' ? num3(s.purity) : (s.purity || '-'),
                 s.currentCount ?? s.count, `${num3(s.netWeight)}g`
             ]),
             widths: [80, 150, 80, 80, 80, 80, 80],
